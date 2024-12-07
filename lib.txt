@@ -1,0 +1,17 @@
+nextjs - tailwind: npx create-next-app@latest . --typescript --eslint
+axios: npm install axios
+react-hook-form: npm install react-hook-form
+sass: npm i sass
+redux: npm install @reduxjs/toolkit react-redux
+jsonwebtoken,next-cookies, js-cookie: npm install jsonwebtoken next-cookies js-cookie
+// Fix BUG
+npm install @types/jsonwebtoken -D
+npm install @types/js-cookie -D
+npm i react-icons
+npm i react-chartjs-2
+npm i chart.js
+
+"C:/Program Files/Google/Chrome/Application/chrome.exe" --user-data-dir="C:/Chrome dev session" --disable-web-security
+
+
+
