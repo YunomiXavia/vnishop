@@ -2,7 +2,7 @@
 
 import {
   FaBox,
-  FaCalendarDay,
+  FaCalendarDay, FaChalkboardTeacher,
   FaChartBar,
   FaFileContract,
   FaQuestionCircle,
@@ -13,6 +13,11 @@ import Sidebar from "@/components/sidebar/components/Sidebar";
 
 const SidebarAdmin = () => {
   const adminMenuItems = [
+    {
+      href: "/admin/admins",
+      icon: FaChalkboardTeacher,
+      label: "Quản lý Admin",
+    },
     {
       href: "/admin/users",
       icon: FaUser,

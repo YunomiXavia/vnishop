@@ -42,6 +42,7 @@ export interface UserFormProps {
     isPasswordUpdated: boolean;
     onClose: () => void;
     onSubmit: (data: FormUserData) => void;
+    onTogglePasswordUpdate?: () => void;
 }
 
 export interface CollaboratorFormProps {

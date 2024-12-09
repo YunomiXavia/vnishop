@@ -3,7 +3,7 @@ import { useFormContext } from "react-hook-form";
 import InputTextForm from "@/components/input/InputTextForm";
 import {FormUserData, UserFormProps} from "@/types/component/form/form";
 
-const UserForm: React.FC<UserFormProps> = ({ isEditing, isPasswordUpdated, onClose, onSubmit }) => {
+const UserForm: React.FC<UserFormProps> = ({ isEditing, isPasswordUpdated, onClose, onSubmit, onTogglePasswordUpdate }) => {
     const methods = useFormContext<FormUserData>();
 
     return (
@@ -31,7 +31,11 @@ const UserForm: React.FC<UserFormProps> = ({ isEditing, isPasswordUpdated, onClo
                             type="checkbox"
                             id="updatePassword"
                             checked={isPasswordUpdated}
-                            onChange={() => methods.setValue('password', '')}
+                            onChange={() => {
+                                methods.setValue('password', '');
+                                if (onTogglePasswordUpdate) {
+                                    onTogglePasswordUpdate();
+                                }                            }}
                             className="h-5 w-5"
                         />
                         <label htmlFor="updatePassword" className="text-sm">
@@ -39,23 +43,25 @@ const UserForm: React.FC<UserFormProps> = ({ isEditing, isPasswordUpdated, onClo
                         </label>
                     </div>
                 )}
-                {!isEditing || (isEditing && isPasswordUpdated) ? (
-                    <InputTextForm
-                        name="password"
-                        label="Mật khẩu"
-                        placeholder="Mật khẩu"
-                        type="password"
-                        required={!isEditing || isPasswordUpdated}
-                        validation={{
-                            minLength: {
-                                value: 8,
-                                message: "Mật khẩu phải có ít nhất 8 ký tự",
-                            },
-                        }}
-                        isPassword
-                        disabled={false}
-                    />
-                ) : null}
+                {
+                    (!isEditing || (isEditing && isPasswordUpdated)) && (
+                        <InputTextForm
+                            name="password"
+                            label="Mật khẩu"
+                            placeholder="Mật khẩu"
+                            type="password"
+                            required={!isEditing || isPasswordUpdated}
+                            validation={{
+                                minLength: {
+                                    value: 8,
+                                    message: "Mật khẩu phải có ít nhất 8 ký tự",
+                                },
+                            }}
+                            isPassword
+                            disabled={false}
+                        />
+                    )
+                }
                 <InputTextForm
                     name="email"
                     label="Email"

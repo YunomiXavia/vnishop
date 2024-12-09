@@ -68,8 +68,8 @@ const InputTextForm: React.FC<
                                     onClick={toggleShowPassword}
                                     className="absolute inset-y-0 right-0 top-1/2 flex items-center pr-3 cursor-pointer"
                                 >
-                  {showPassword ? EyeOffIcon : EyeIcon}
-                </span>
+                                  {showPassword ? EyeOffIcon : EyeIcon}
+                                </span>
                             )}
                             {error && (
                                 <p className="text-red-500 text-sm mt-1">{error.message}</p>

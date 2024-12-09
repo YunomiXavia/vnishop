@@ -13,23 +13,34 @@ import {ErrorResponseProps} from "@/types/error/error";
 import {extractError} from "@/utils/utils/helper";
 
 const initialState: UserState = {
-  users: [],
-  loading: false,
-  error: null,
+    users: [],
+    loading: false,
+    error: null,
+    currentPage: 0,
+    totalPages: 0,
+    totalElements: 0,
+    pageSize: 5,
 };
 
 // Get All Users
 export const getUsers = createAsyncThunk<
-    User[],
-    void,
+    { content: User[]; currentPage: number; totalPages: number; totalElements: number; pageSize: number },
+    { page: number; size: number },
     { rejectValue: ErrorResponseProps }
 >(
     "admin/users/getUsers",
-    async (_, { rejectWithValue }) => {
+    async ({ page, size }, { rejectWithValue }) => {
       try {
-        const response = await axiosInstance.get("/admin/users");
+          const response = await axiosInstance.get(`/admin/users?page=${page}&size=${size}`);
         if (response.data.code === 2000) {
-          return response.data.result;
+            const data = response.data.result.data;
+            return {
+                content: data.content,
+                currentPage: data.number,
+                totalPages: data.totalPages,
+                totalElements: data.totalElements,
+                pageSize: data.size,
+            };
         } else {
           return rejectWithValue({
             code: response.data.code,
@@ -39,6 +50,37 @@ export const getUsers = createAsyncThunk<
       } catch (error) {
         return rejectWithValue(extractError(error));
       }
+    }
+);
+
+// Get All Admin Users
+export const getAdmins = createAsyncThunk<
+    { content: User[]; currentPage: number; totalPages: number; totalElements: number; pageSize: number },
+    { page: number; size: number },
+    { rejectValue: ErrorResponseProps }
+>(
+    "admin/admins/getAdmins",
+    async ({ page, size }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/admin/admins?page=${page}&size=${size}`);
+            if (response.data.code === 2000) {
+                const data = response.data.result.data;
+                return {
+                    content: data.content,
+                    currentPage: data.number,
+                    totalPages: data.totalPages,
+                    totalElements: data.totalElements,
+                    pageSize: data.size,
+                };
+            } else {
+                return rejectWithValue({
+                    code: response.data.code,
+                    message: response.data.message,
+                });
+            }
+        } catch (error) {
+            return rejectWithValue(extractError(error));
+        }
     }
 );
 
@@ -63,6 +105,29 @@ export const createUser = createAsyncThunk<
       } catch (error) {
         return rejectWithValue(extractError(error));
       }
+    }
+);
+
+export const createAdmin = createAsyncThunk<
+    User,
+    Omit<User, "id" | "role" | "dateJoined" | "totalSpent">,
+    { rejectValue: ErrorResponseProps }
+>(
+    "admin/admin/createAdmin",
+    async (userData, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.post("/admin/admin", userData);
+            if (response.data.code === 2000) {
+                return response.data.result;
+            } else {
+                return rejectWithValue({
+                    code: response.data.code,
+                    message: response.data.message,
+                });
+            }
+        } catch (error) {
+            return rejectWithValue(extractError(error));
+        }
     }
 );
 
@@ -231,18 +296,39 @@ const userSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+        // Get Admins
+        .addCase(getAdmins.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(getAdmins.fulfilled, (state, action) => {
+            state.loading = false;
+            state.users = action.payload.content;
+            state.currentPage = action.payload.currentPage;
+            state.totalPages = action.payload.totalPages;
+            state.totalElements = action.payload.totalElements;
+            state.pageSize = action.payload.pageSize;
+        })
+        .addCase(getAdmins.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload || { code: -1, message: "Lấy danh sách Admin thất bại" };
+        })
         // Get Users
         .addCase(getUsers.pending, (state) => {
-          state.loading = true;
-          state.error = null;
+            state.loading = true;
+            state.error = null;
         })
         .addCase(getUsers.fulfilled, (state, action) => {
-          state.loading = false;
-          state.users = action.payload;
+            state.loading = false;
+            state.users = action.payload.content;
+            state.currentPage = action.payload.currentPage;
+            state.totalPages = action.payload.totalPages;
+            state.totalElements = action.payload.totalElements;
+            state.pageSize = action.payload.pageSize;
         })
         .addCase(getUsers.rejected, (state, action) => {
-          state.loading = false;
-          state.error = action.payload || { code: -1, message: "Lấy danh sách Người dùng thất bại." };
+            state.loading = false;
+            state.error = action.payload || { code: -1, message: "Lấy danh sách Người dùng thất bại." };
         })
         // Create User
         .addCase(createUser.pending, (state) => {
@@ -256,6 +342,19 @@ const userSlice = createSlice({
         .addCase(createUser.rejected, (state, action) => {
           state.loading = false;
           state.error = action.payload || { code: -1, message: "Tạo Người dùng thất bại." };
+        })
+        // Create Admin
+        .addCase(createAdmin.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(createAdmin.fulfilled, (state, action) => {
+            state.loading = false;
+            state.users.push(action.payload);
+        })
+        .addCase(createAdmin.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload || { code: -1, message: "Tạo Admin thất bại." };
         })
         // Update User
         .addCase(updateUser.pending, (state) => {

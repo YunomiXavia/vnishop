@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, {useEffect, useState} from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   createUser,
@@ -47,7 +47,7 @@ ChartJS.register(
 
 const FormUserAdmin: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { users, loading, error } = useAppSelector((state) => state.users);
+  const { users, loading, error, currentPage, totalPages, pageSize, totalElements } = useAppSelector((state) => state.users);
 
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -68,34 +68,14 @@ const FormUserAdmin: React.FC = () => {
     },
   });
 
-  const [roleFilter, setRoleFilter] = useState<string>("");
-  const [dateJoinedFilter, setDateJoinedFilter] = useState<string>("");
-  const [totalspentFilter, setTotalSpentFilter] = useState<number>(0);
-  const uniqueDates = Array.from(
-      new Set(users.map((user) => new Date(user.dateJoined).toLocaleDateString()))
-  );
-
-  const filteredUsers = users.filter((user) => {
-    const matchesRole = roleFilter ? user.role === roleFilter : true;
-    const matchesDateJoined = dateJoinedFilter
-        ? new Date(user.dateJoined).toLocaleDateString() === dateJoinedFilter
-        : true;
-    const matchesTotalSpent = totalspentFilter
-        ? user.totalSpent === totalspentFilter
-        : true;
-    return matchesRole && matchesDateJoined && matchesTotalSpent;
-  });
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
-  const totalPages = Math.ceil(filteredUsers.length / rowsPerPage);
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [minTotalSpent, setMinTotalSpent] = useState<number>(0);
 
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
-
-  const formRef = useRef<HTMLFormElement>(null);
 
   const onSubmit = async (data: FormUserData) => {
     const payload: FormUserData = { ...data, birthDate: data.birthDate };
@@ -171,6 +151,11 @@ const FormUserAdmin: React.FC = () => {
           type: "success",
         });
       }
+      if (currentPage > 0) {
+        await dispatch(getUsers({ page: currentPage - 1, size: pageSize }));
+      } else {
+        await dispatch(getUsers({ page: 0, size: pageSize }));
+      }
     } catch (error: unknown) {
       const err = extractError(error);
       setNotification({
@@ -188,6 +173,11 @@ const FormUserAdmin: React.FC = () => {
           message: "Xóa các người dùng thành công!",
           type: "success",
         });
+      }
+      if (currentPage > 0) {
+        await dispatch(getUsers({ page: currentPage - 1, size: pageSize }));
+      } else {
+        await dispatch(getUsers({ page: 0, size: pageSize }));
       }
     } catch (error: unknown) {
       const err = extractError(error);
@@ -217,25 +207,39 @@ const FormUserAdmin: React.FC = () => {
   };
 
   const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= totalPages) setCurrentPage(newPage);
+    if (newPage > 0 && newPage <= totalPages) {
+      dispatch(getUsers({ page: newPage - 1, size: pageSize }));
+    }
   };
 
-  const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRoleFilter(e.target.value);
+  const handleDateFromChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDateFrom(e.target.value);
   };
 
-  const handleDateJoinedFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setDateJoinedFilter(e.target.value);
+  const handleDateToChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDateTo(e.target.value);
   };
 
-  const handleTotalSpentFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setTotalSpentFilter(parseInt(e.target.value));
+  const handleMinTotalSpentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMinTotalSpent(Number(e.target.value));
   };
 
-  const paginatedUsers = filteredUsers.slice(
-      (currentPage - 1) * rowsPerPage,
-      currentPage * rowsPerPage
-  );
+  const filteredUsers = users.filter((user) => {
+    let matchesDate = true;
+    if (dateFrom) {
+      matchesDate = matchesDate && (new Date(user.dateJoined) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      matchesDate = matchesDate && (new Date(user.dateJoined) <= new Date(dateTo));
+    }
+
+    let matchesTotalSpent = true;
+    if (minTotalSpent > 0) {
+      matchesTotalSpent = (user.totalSpent || 0) > minTotalSpent;
+    }
+
+    return matchesDate && matchesTotalSpent;
+  });
 
   const handleExportToExcel = () => {
     try {
@@ -276,13 +280,6 @@ const FormUserAdmin: React.FC = () => {
 
   const handleExportStatisticsToExcel = () => {
     try {
-      const roleDistributionData = Object.keys(roleDistribution).map(
-          (role) => ({
-            ["Vai trò"]: role,
-            ["Số lượng"]: roleDistribution[role],
-          })
-      );
-
       const monthlyJoinsDataFormatted = Object.keys(monthlyJoins).map(
           (month) => ({
             ["Tháng"]: month,
@@ -303,9 +300,6 @@ const FormUserAdmin: React.FC = () => {
       }));
 
       const workbook = XLSX.utils.book_new();
-
-      const roleWorksheet = XLSX.utils.json_to_sheet(roleDistributionData);
-      XLSX.utils.book_append_sheet(workbook, roleWorksheet, "Phân phối vai trò");
 
       const monthlyJoinsWorksheet = XLSX.utils.json_to_sheet(
           monthlyJoinsDataFormatted
@@ -348,25 +342,10 @@ const FormUserAdmin: React.FC = () => {
     }
   };
 
-  const totalSpent = users.reduce(
-      (sum, user) => sum + (user.totalSpent || 0),
-      0
-  );
-
-  const roleDistribution = users.reduce(
-      (acc: { [key: string]: number }, user) => {
-        acc[user.role] = (acc[user.role] || 0) + 1;
-        return acc;
-      },
-      {}
-  );
-
   const monthlyJoins: { [key: string]: number } = {};
   const ageDistribution: { [key: string]: number } = {};
   const topSpenders: { username: string; totalSpent: number }[] = [];
 
-  // Bạn cần tính monthlyJoins, ageDistribution, topSpenders như logic cũ
-  // Ví dụ:
   users.forEach((user) => {
     const joinMonth = new Date(user.dateJoined).toLocaleString("default", {
       month: "short",
@@ -385,17 +364,6 @@ const FormUserAdmin: React.FC = () => {
       .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
       .slice(0, 5)
       .forEach((u) => topSpenders.push({ username: u.username, totalSpent: u.totalSpent || 0 }));
-
-  const roleChartData = {
-    labels: Object.keys(roleDistribution),
-    datasets: [
-      {
-        data: Object.values(roleDistribution),
-        backgroundColor: ["#4caf50", "#f44336", "#2196f3", "#ff9800"],
-        hoverBackgroundColor: ["#66bb6a", "#e57373", "#64b5f6", "#ffb74d"],
-      },
-    ],
-  };
 
   const monthlyJoinsData = {
     labels: Object.keys(monthlyJoins),
@@ -433,13 +401,20 @@ const FormUserAdmin: React.FC = () => {
     ],
   };
 
+  const totalSpent = users.reduce(
+      (sum, user) => sum + (user.totalSpent || 0),
+      0
+  );
+  const numberOfMonths = Object.keys(monthlyJoins).length;
+  const averageMonthlyJoins = numberOfMonths > 0 ? (totalElements / numberOfMonths) : 0;
+  const averageSpending = totalElements > 0 ? (totalSpent / totalElements) : 0;
+
   const columns: Column<User>[] = [
     {
       header: "STT",
       render: (item: User) => {
-        const pageIndex = (currentPage - 1) * rowsPerPage;
-        const i = users.indexOf(item);
-        return pageIndex + i + 1;
+        const i = filteredUsers.indexOf(item);
+        return i + 1;
       }
     },
     {
@@ -452,13 +427,7 @@ const FormUserAdmin: React.FC = () => {
       header: "Vai trò",
       accessor: "role",
       render: (user: User) => (
-          <span className={`px-2 py-1 rounded-full text-white text-sm ${
-              user.role === "Admin"
-                  ? "bg-green-500"
-                  : user.role === "Collaborator"
-                      ? "bg-red-500"
-                      : "bg-indigo-500"
-          }`}>
+          <span className="px-2 py-1 rounded-full text-white text-sm bg-indigo-500">
           {user.role}
         </span>
       )
@@ -516,26 +485,8 @@ const FormUserAdmin: React.FC = () => {
   ];
 
   useEffect(() => {
-    dispatch(getUsers());
+    dispatch(getUsers({ page: 0, size: 5 }));
   }, [dispatch]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (formRef.current && !formRef.current.contains(e.target as Node)) {
-        setShowForm(false);
-      }
-    };
-
-    if (showForm) {
-      document.addEventListener("click", handleClickOutside);
-    } else {
-      document.removeEventListener("click", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [showForm]);
 
   useEffect(() => {
     if (error) {
@@ -561,7 +512,8 @@ const FormUserAdmin: React.FC = () => {
         )}
 
         {showConfirmPopup && (
-            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
+            <div
+                className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
               <div
                   className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full
                 transform transition-all duration-300 ease-out scale-95"
@@ -588,18 +540,25 @@ const FormUserAdmin: React.FC = () => {
         )}
 
         {showForm && (
-            <div className="fixed inset-0 bg-black opacity-50 z-40 backdrop-blur-sm" onClick={() => setShowForm(false)}></div>
-        )}
-        {showForm && (
             <div className="fixed inset-0 flex items-center justify-center z-50">
-              <FormProvider {...methods}>
-                <UserForm
-                    isEditing={isEditing}
-                    isPasswordUpdated={isPasswordUpdated}
-                    onClose={() => setShowForm(false)}
-                    onSubmit={onSubmit}
-                />
-              </FormProvider>
+              {/* Overlay */}
+              <div
+                  className="absolute inset-0 bg-black opacity-50"
+                  onClick={() => setShowForm(false)}
+              ></div>
+
+              {/* Form Container */}
+              <div className="relative z-50">
+                <FormProvider {...methods}>
+                  <UserForm
+                      isEditing={isEditing}
+                      isPasswordUpdated={isPasswordUpdated}
+                      onClose={() => setShowForm(false)}
+                      onSubmit={onSubmit}
+                      onTogglePasswordUpdate={() => setIsPasswordUpdated(!isPasswordUpdated)}
+                  />
+                </FormProvider>
+              </div>
             </div>
         )}
 
@@ -613,14 +572,14 @@ const FormUserAdmin: React.FC = () => {
                   className="flex items-center px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={handleExportStatisticsToExcel}
               >
-                <FaFileExcel className="mr-2" />
+                <FaFileExcel className="mr-2"/>
                 Xuất dữ liệu thống kê ra Excel
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={handleExportToExcel}
               >
-                <FaFileExcel className="mr-2" />
+                <FaFileExcel className="mr-2"/>
                 Xuất dữ liệu ra Excel
               </button>
               <button
@@ -634,7 +593,7 @@ const FormUserAdmin: React.FC = () => {
                     setShowForm(true);
                   }}
               >
-                <FaUserPlus className="mr-2" />
+                <FaUserPlus className="mr-2"/>
                 Thêm người dùng mới
               </button>
               <button
@@ -642,7 +601,7 @@ const FormUserAdmin: React.FC = () => {
                   onClick={handleShowConfirmPopup}
                   disabled={selectedUsers.length === 0}
               >
-                <FaTrash className="mr-2" />
+                <FaTrash className="mr-2"/>
                 Xóa nhiều người dùng
               </button>
             </div>
@@ -651,77 +610,57 @@ const FormUserAdmin: React.FC = () => {
           <div className="flex space-x-4 mb-4 justify-end items-center">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Lọc theo vai trò:
+                Từ ngày:
               </label>
-              <select
-                  value={roleFilter}
-                  onChange={handleRoleFilterChange}
+              <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={handleDateFromChange}
                   className="mt-1 p-2 border rounded-md"
-              >
-                <option value="">Tất cả</option>
-                <option value="Admin">Admin</option>
-                <option value="Collaborator">Cộng tác viên</option>
-                <option value="User">Người dùng</option>
-              </select>
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Lọc theo ngày tham gia:
+                Đến ngày:
               </label>
-              <select
-                  value={dateJoinedFilter}
-                  onChange={handleDateJoinedFilterChange}
+              <input
+                  type="date"
+                  value={dateTo}
+                  onChange={handleDateToChange}
                   className="mt-1 p-2 border rounded-md"
-              >
-                <option value="">Tất cả</option>
-                {uniqueDates.map((date, index) => (
-                    <option key={index} value={date}>
-                      {date}
-                    </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Lọc theo tổng chi tiêu:
+                Lọc tổng chi tiêu lớn hơn:
               </label>
-              <select
-                  value={totalspentFilter ?? ""}
-                  onChange={handleTotalSpentFilterChange}
-                  className="mt-1 p-2 border rounded-md"
-              >
-                <option value={0}>Tất cả</option>
-                {Array.from(new Set(users.map((user) => user.totalSpent))).map(
-                    (totalSpent, index) => (
-                        <option key={index} value={totalSpent ?? ""}>
-                          {totalSpent ? formatCurrencyVND(totalSpent) : "N/A"}
-                        </option>
-                    )
-                )}
-              </select>
+              <input
+                  type="number"
+                  min={0}
+                  value={minTotalSpent}
+                  onChange={handleMinTotalSpentChange}
+                  className="px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
+              />
             </div>
           </div>
         </div>
 
         <TableData
             columns={columns}
-            data={paginatedUsers}
+            data={filteredUsers}
             onRowClick={(item) => handleRowSelect(item.id)}
             selectedRowIds={selectedUsers}
         />
 
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-gray-600">
-            Đang hiển thị từ{" "}
-            {Math.min((currentPage - 1) * rowsPerPage + 1, users.length)} đến{" "}
-            {Math.min(currentPage * rowsPerPage, users.length)} trong tổng cộng{" "}
-            {users.length} mục
+            Đang hiển thị trang {currentPage + 1} trên {totalPages}, tổng số {totalElements} mục
           </div>
 
           <Pagination
-              currentPage={currentPage}
+              currentPage={currentPage + 1}
               totalPages={totalPages}
               onPageChange={handlePageChange}
           />
@@ -737,31 +676,21 @@ const FormUserAdmin: React.FC = () => {
               <p>Tổng chi tiêu</p>
             </div>
             <div>
-              <p className="text-xl font-bold">
-                {roleDistribution["Admin"] || 0}
-              </p>
-              <p>Admin</p>
+              <p className="text-xl font-bold">{averageSpending.toLocaleString(undefined, {maximumFractionDigits: 2})}</p>
+              <p>Chi tiêu trung bình</p>
             </div>
             <div>
-              <p className="text-xl font-bold">
-                {roleDistribution["Collaborator"] || 0}
-              </p>
-              <p>Cộng tác viên</p>
+              <p className="text-xl font-bold">{averageMonthlyJoins.toLocaleString(undefined, {maximumFractionDigits: 2})}</p>
+              <p>Tham gia hàng tháng (TB)</p>
             </div>
             <div>
-              <p className="text-xl font-bold">{roleDistribution["User"] || 0}</p>
-              <p>Người dùng</p>
+              <p className="text-xl font-bold">{totalElements}</p>
+              <p>Tổng số người dùng</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6 mt-8 mx-auto max-w-8xl px-4">
-          <Chart
-              type="pie"
-              data={roleChartData}
-              options={{ maintainAspectRatio: false }}
-              title="Phân phối vai trò"
-          />
           <Chart
               type="bar"
               data={monthlyJoinsData}
