@@ -1,66 +1,61 @@
 "use client";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import React, { useEffect, useRef, useState } from "react";
-import { getSurveys } from "@/store/survey/surveySlice";
+import {useAppDispatch, useAppSelector} from "@/store/hooks";
+import React, {useEffect, useState} from "react";
+import {getSurveys} from "@/store/survey/surveySlice";
 import Notification from "@/components/notification/Notification";
-import { FaFileExcel } from "react-icons/fa";
+import {FaFileExcel} from "react-icons/fa";
 import * as XLSX from "xlsx";
 import Pagination from "@/components/pagination/Pagination";
 import Chart from "@/components/chart/Chart";
-import { barChartOptions } from "@/types/component/chart/chart";
+import {barChartOptions} from "@/types/component/chart/chart";
 
 const FormSurveyAdmin = () => {
   const dispatch = useAppDispatch();
-  const { surveys, loading, error } = useAppSelector((state) => state.surveys);
+  const { surveys, loading, error, currentPage, totalPages, totalElements, pageSize } = useAppSelector((state) => state.surveys);
 
-  const [showForm, setShowForm] = useState(false);
   const [selectedSurveys, setSelectedSurveys] = useState<string[]>([]);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
-  const totalPages = Math.ceil(surveys.length / rowsPerPage);
+  const [displayPage, setDisplayPage] = useState<number>(1);
 
-  const [createdDateFilter, setCreatedDateFilter] = useState<string | null>(
-      null
-  );
-  const [responseDateFilter, setResponseDateFilter] = useState<string | null>(
-      null
-  );
+  const [createdFromDate, setCreatedFromDate] = useState<string>("");
+  const [createdToDate, setCreatedToDate] = useState<string>("");
+  const [responseFromDate, setResponseFromDate] = useState<string>("");
+  const [responseToDate, setResponseToDate] = useState<string>("");
 
   const handlePageChange = (newPage: number) => {
     if (newPage > 0 && newPage <= totalPages) {
-      setCurrentPage(newPage);
+      setDisplayPage(newPage);
+      dispatch(getSurveys({ page: newPage - 1, size: pageSize }));
     }
   };
 
-  // Lọc câu hỏi theo ngày tạo và ngày phản hồi
-  const filteredSurveys = surveys.filter((survey) => {
-    const createdDateCondition = createdDateFilter
-        ? new Date(survey.createdAt).toLocaleDateString() === createdDateFilter
-        : true;
+  const displayedSurveys = surveys.filter((survey) => {
+    let condition = true;
 
-    const responseDateCondition = responseDateFilter
-        ? survey.responseAt
-            ? new Date(survey.responseAt).toLocaleDateString() === responseDateFilter
-            : false
-        : true;
+    // Lọc theo ngày tạo
+    if (createdFromDate) {
+      condition = condition && new Date(survey.createdAt) >= new Date(createdFromDate);
+    }
+    if (createdToDate) {
+      condition = condition && new Date(survey.createdAt) <= new Date(createdToDate);
+    }
 
-    return createdDateCondition && responseDateCondition;
+    // Lọc theo ngày phản hồi
+    if (responseFromDate) {
+      condition = condition && survey.responseAt && new Date(survey.responseAt) >= new Date(responseFromDate);
+    }
+    if (responseToDate) {
+      condition = condition && survey.responseAt && new Date(survey.responseAt) <= new Date(responseToDate);
+    }
+
+    return condition;
   });
 
-  const paginatedSurveys = filteredSurveys.slice(
-      (currentPage - 1) * rowsPerPage,
-      currentPage * rowsPerPage
-  );
-
-  const formRef = useRef<HTMLFormElement>(null);
-
-  // Chọn dòng câu hỏi
   const handleRowSelect = (surveyId: string) => {
     setSelectedSurveys((prevSurveys) =>
         prevSurveys.includes(surveyId)
@@ -69,7 +64,7 @@ const FormSurveyAdmin = () => {
     );
   };
 
-  // Xuất dữ liệu ra Excel
+  // Xuất excel
   const handleExportToExcel = () => {
     try {
       const excelData = surveys.map((survey, index) => ({
@@ -78,15 +73,14 @@ const FormSurveyAdmin = () => {
         ["ID Người Dùng"]: survey.user.id,
         ["Tên đăng nhập"]: survey.user.username,
         ["ID Cộng Tác Viên"]: survey.collaborator?.id || "N/A",
-        ["Tên đăng nhập Cộng Tác Viên"]: survey.collaborator?.username || "N/A",
-        ["Tổng câu hỏi đã xử lý bởi Cộng Tác Viên"]:
-            survey.collaborator?.totalSurveyHandled || 0,
+        ["Tên đăng nhập CTV"]: survey.collaborator?.username || "N/A",
+        ["SL CTV đã xử lý"]: survey.collaborator?.totalSurveyHandled || 0,
         ["ID Trạng Thái"]: survey.status.id,
         ["Tên Trạng Thái"]: survey.status.statusName,
         ["Câu Hỏi"]: survey.question,
         ["Phản Hồi"]: survey.response || "N/A",
-        ["Ngày Tạo"]: survey.createdAt,
-        ["Ngày Phản Hồi"]: survey.responseAt,
+        ["Ngày Tạo"]: new Date(survey.createdAt).toLocaleDateString(),
+        ["Ngày Phản Hồi"]: survey.responseAt ? new Date(survey.responseAt).toLocaleDateString() : "N/A",
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -108,9 +102,8 @@ const FormSurveyAdmin = () => {
     }
   };
 
-  // Xuất dữ liệu thống kê ra Excel
-  const totalSurveys = surveys.length;
-
+  // Thống kê
+  const totalSurveys = totalElements; // Tổng số câu hỏi từ backend
   const statusDistribution = surveys.reduce(
       (acc: { [key: string]: number }, survey) => {
         acc[survey.status.statusName] = (acc[survey.status.statusName] || 0) + 1;
@@ -138,7 +131,7 @@ const FormSurveyAdmin = () => {
         const responseTime =
             new Date(survey.responseAt).getTime() -
             new Date(survey.createdAt).getTime();
-        return responseTime / (1000 * 60 * 60 * 24);
+        return responseTime / (1000 * 60 * 60 * 24); // chuyển đổi từ milliseconds sang ngày
       });
 
   const avgResponseTime =
@@ -149,33 +142,35 @@ const FormSurveyAdmin = () => {
   const handleExportStatisticsToExcel = () => {
     try {
       const overviewData = [
-        { ["Chỉ số"]: "Tổng số câu hỏi", ["Giá trị"]: totalSurveys },
+        { ["Chỉ số"]: "Tổng SP", ["Giá trị"]: totalSurveys },
         {
-          ["Chỉ số"]: "Phân phối trạng thái câu hỏi",
-          ["Giá trị"]: JSON.stringify(statusDistribution, null, 2),
+          ["Chỉ số"]: "Phân phối trạng thái",
+          ["Giá trị"]: Object.entries(statusDistribution)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join("\n"),
         },
         {
-          ["Chỉ số"]: "Số câu hỏi đã phản hồi",
+          ["Chỉ số"]: "Câu hỏi đã phản hồi",
           ["Giá trị"]: responseTimes.length,
         },
         {
-          ["Chỉ số"]: "Thời gian phản hồi trung bình (ngày)",
+          ["Chỉ số"]: "Thời gian phản hồi TB (ngày)",
           ["Giá trị"]: avgResponseTime.toFixed(2),
         },
       ];
 
       const topCollaboratorsData = topCollaborators.map((collab, index) => ({
         ["Hạng"]: index + 1,
-        ["Cộng Tác Viên"]: collab.username,
-        ["Tổng câu hỏi đã xử lý"]: collab.totalSurveyHandled,
+        ["CTV"]: collab.username,
+        ["SL CTV xử lý"]: collab.totalSurveyHandled,
       }));
 
       const overviewWorksheet = XLSX.utils.json_to_sheet(overviewData);
       const collaboratorsWorksheet = XLSX.utils.json_to_sheet(topCollaboratorsData);
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, overviewWorksheet, "ThongKeTongQuan");
-      XLSX.utils.book_append_sheet(workbook, collaboratorsWorksheet, "CongTacVienHangDau");
+      XLSX.utils.book_append_sheet(workbook, overviewWorksheet, "Tổng quan");
+      XLSX.utils.book_append_sheet(workbook, collaboratorsWorksheet, "Top CTV");
 
       XLSX.writeFile(workbook, "ThongKe_CauHoi.xlsx");
 
@@ -191,42 +186,15 @@ const FormSurveyAdmin = () => {
     }
   };
 
-  // Lấy dữ liệu câu hỏi khi load
+  // Khi load trang lần đầu và khi displayPage thay đổi
   useEffect(() => {
-    dispatch(getSurveys());
-  }, [dispatch]);
+    dispatch(getSurveys({ page: currentPage, size: pageSize }));
+  }, [dispatch, currentPage, pageSize]);
 
-  const uniqueCreatedDates = Array.from(
-      new Set(surveys.map((survey) => new Date(survey.createdAt).toLocaleDateString()))
-  );
-  const uniqueResponseDates = Array.from(
-      new Set(
-          surveys.map((survey) =>
-              survey.responseAt
-                  ? new Date(survey.responseAt).toLocaleDateString()
-                  : ""
-          )
-      )
-  ).filter((date) => date !== "");
-
-  // Xử lý khi click ra ngoài form
+  // Cập nhật displayPage khi currentPage thay đổi
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (formRef.current && !formRef.current.contains(e.target as Node)) {
-        setShowForm(false);
-      }
-    };
-
-    if (showForm) {
-      document.addEventListener("click", handleClickOutside);
-    } else {
-      document.removeEventListener("click", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [showForm]);
+    setDisplayPage(currentPage + 1); // nếu currentPage là zero-based
+  }, [currentPage]);
 
   const statusChartData = {
     labels: Object.keys(statusDistribution),
@@ -239,11 +207,11 @@ const FormSurveyAdmin = () => {
     ],
   };
 
-  const topCollaboratorsData = {
+  const topCollaboratorsDataChart = {
     labels: topCollaborators.map((collab) => collab.username),
     datasets: [
       {
-        label: "Tổng câu hỏi đã xử lý",
+        label: "SL CTV đã xử lý",
         data: topCollaborators.map((collab) => collab.totalSurveyHandled),
         backgroundColor: "#2196f3",
         hoverBackgroundColor: "#64b5f6",
@@ -252,7 +220,7 @@ const FormSurveyAdmin = () => {
   };
 
   const responseTimeData = {
-    labels: ["Thời gian phản hồi trung bình"],
+    labels: ["Thời gian phản hồi TB"],
     datasets: [
       {
         label: "Ngày",
@@ -278,76 +246,90 @@ const FormSurveyAdmin = () => {
             </div>
         )}
 
-        <div className="p-4 mx-auto ">
+        <div className="p-4 mx-auto">
           <div className="flex justify-between mb-4">
-            <h2 className="text-2xl font-semibold text-indigo-700">Quản lý câu hỏi</h2>
+            <h2 className="text-2xl font-semibold text-indigo-700">QL Câu Hỏi</h2>
             <div className="flex space-x-2">
               <button
                   className="flex items-center px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={handleExportStatisticsToExcel}
               >
                 <FaFileExcel className="mr-2" />
-                Phân tích dữ liệu sang excel
+                TK Excel
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={handleExportToExcel}
               >
                 <FaFileExcel className="mr-2" />
-                Xuất ra excel
+                Xuất Excel
               </button>
             </div>
           </div>
 
-          <div className="flex space-x-4 mb-4 justify-end items-center">
+          <div className="flex gap-4 mb-4 justify-end items-center">
+            {/* Lọc theo ngày tạo */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Lọc theo ngày tạo:
+                Ngày tạo từ:
               </label>
-              <select
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-                  value={createdDateFilter || ""}
-                  onChange={(e) => setCreatedDateFilter(e.target.value || null)}
-              >
-                <option value="">Lọc theo ngày tạo</option>
-                {uniqueCreatedDates.map((date, index) => (
-                    <option key={index} value={date}>
-                      {date}
-                    </option>
-                ))}
-              </select>
+              <input
+                  type="date"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  value={createdFromDate}
+                  onChange={(e) => setCreatedFromDate(e.target.value)}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Lọc theo ngày phản hồi:
+                Đến:
               </label>
-              <select
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-                  value={responseDateFilter || ""}
-                  onChange={(e) => setResponseDateFilter(e.target.value || null)}
-              >
-                <option value="">Lọc theo ngày phản hồi</option>
-                {uniqueResponseDates.map((date, index) => (
-                    <option key={index} value={date}>
-                      {date}
-                    </option>
-                ))}
-              </select>
+              <input
+                  type="date"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  value={createdToDate}
+                  onChange={(e) => setCreatedToDate(e.target.value)}
+              />
+            </div>
+
+            {/* Lọc theo ngày phản hồi */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Ngày phản hồi từ:
+              </label>
+              <input
+                  type="date"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  value={responseFromDate}
+                  onChange={(e) => setResponseFromDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Đến:
+              </label>
+              <input
+                  type="date"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  value={responseToDate}
+                  onChange={(e) => setResponseToDate(e.target.value)}
+              />
             </div>
           </div>
         </div>
 
-        {filteredSurveys.length > 0 && (
+        {displayedSurveys.length > 0 && (
             <div className="overflow-x-auto transition-opacity duration-500 ease-in-out border rounded-lg shadow-sm mb-6">
               <table className="min-w-full bg-white border rounded-lg shadow-sm">
                 <thead>
                 <tr className="bg-gray-200 text-gray-700">
-                  <th className="px-4 py-2 text-center">STT</th>
-                  <th className="px-4 py-2 text-center">Tên đăng nhập</th>
-                  <th className="px-4 py-2 text-center">Tên đăng nhập của cộng tác viên</th>
-                  <th className="px-4 py-2 text-center">Tổng số câu hỏi cộng tác viên đã xử lý</th>
-                  <th className="px-4 py-2 text-center">Trạng thái</th>
+                  <th className="px-4 py-2 text-center">#</th>
+                  <th className="px-4 py-2 text-center">Tên ĐN</th>
+                  <th className="px-4 py-2 text-center">CTV ĐN</th>
+                  <th className="px-4 py-2 text-center">SL CTV Xử lý</th>
+                  <th className="px-4 py-2 text-center">TT</th>
                   <th className="px-4 py-2 text-center">Câu hỏi</th>
                   <th className="px-4 py-2 text-center">Phản hồi</th>
                   <th className="px-4 py-2 text-center">Ngày tạo</th>
@@ -355,19 +337,17 @@ const FormSurveyAdmin = () => {
                 </tr>
                 </thead>
                 <tbody>
-                {paginatedSurveys.length > 0 ? (
-                    paginatedSurveys.map((survey, index) => (
+                {displayedSurveys.length > 0 ? (
+                    displayedSurveys.map((survey, index) => (
                         <tr
                             key={survey.id}
                             className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${
-                                selectedSurveys.includes(survey.id)
-                                    ? "bg-indigo-100"
-                                    : "hover:bg-gray-50"
+                                selectedSurveys.includes(survey.id) ? "bg-indigo-100" : "hover:bg-gray-50"
                             }`}
                             onClick={() => handleRowSelect(survey.id)}
                         >
                           <td className="border px-4 py-2 text-center">
-                            {(currentPage - 1) * rowsPerPage + index + 1}
+                            {(currentPage) * pageSize + index + 1}
                           </td>
                           <td className="border px-4 py-2 text-center">
                             {survey.user.username}
@@ -409,7 +389,7 @@ const FormSurveyAdmin = () => {
                     ))
                 ) : (
                     <tr>
-                      <td colSpan={10} className="text-center py-4">
+                      <td colSpan={9} className="text-center py-4">
                         Không có câu hỏi
                       </td>
                     </tr>
@@ -421,38 +401,36 @@ const FormSurveyAdmin = () => {
 
         <div className="flex justify-between items-center mt-4">
           <p className="text-sm text-gray-600">
-            Đang hiển thị từ {Math.min((currentPage - 1) * rowsPerPage + 1, surveys.length)} đến{" "}
-            {Math.min(currentPage * rowsPerPage, surveys.length)} trong tổng số{" "}
-            {surveys.length} mục
+            Đang hiển thị từ {(currentPage) * pageSize + 1} đến{" "}
+            {Math.min((currentPage) * pageSize + displayedSurveys.length, totalElements)}{" "}
+            trong tổng số {totalElements} mục
           </p>
 
           <Pagination
-              currentPage={currentPage}
+              currentPage={displayPage}
               totalPages={totalPages}
               onPageChange={handlePageChange}
           />
         </div>
 
         <div className="col-span-full bg-white p-6 rounded-lg shadow-lg mb-6 mt-6">
-          <h3 className="text-lg font-semibold text-center mb-4">Thống kê tổng quan</h3>
+          <h3 className="text-lg font-semibold text-center mb-4">Thống kê Tổng quan</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 text-center">
             <div>
               <p className="text-xl font-bold">{totalSurveys}</p>
-              <p>Tổng câu hỏi</p>
+              <p>Tổng Câu Hỏi</p>
             </div>
             <div>
-              <p className="text-xl font-bold">
-                {Object.values(statusDistribution).reduce((a, b) => a + b, 0)}
-              </p>
-              <p>Tổng số câu hỏi theo trạng thái</p>
+              <p className="text-xl font-bold">{Object.values(statusDistribution).reduce((a, b) => a + b, 0)}</p>
+              <p>TT Câu Hỏi</p>
             </div>
             <div>
               <p className="text-xl font-bold">{responseTimes.length}</p>
-              <p>Câu hỏi đã phản hồi</p>
+              <p>Câu Hỏi Đã Phản Hồi</p>
             </div>
             <div>
               <p className="text-xl font-bold">{avgResponseTime.toFixed(2)}</p>
-              <p>Thời gian phản hồi trung bình (ngày)</p>
+              <p>Thời gian TB</p>
             </div>
           </div>
         </div>
@@ -462,22 +440,22 @@ const FormSurveyAdmin = () => {
               type="pie"
               data={statusChartData}
               options={{ maintainAspectRatio: false }}
-              title="Phân phối trạng thái câu hỏi"
+              title="Phân phối TT Câu Hỏi"
           />
           <Chart
               type="bar"
-              data={topCollaboratorsData}
+              data={topCollaboratorsDataChart}
               options={{
                 ...barChartOptions,
                 indexAxis: "y",
               }}
-              title="5 cộng tác viên hàng đầu theo câu hỏi đã xử lý"
+              title="Top 5 CTV Xử lý"
           />
           <Chart
               type="bar"
               data={responseTimeData}
               options={barChartOptions}
-              title="Thời gian phản hồi trung bình"
+              title="Thời gian phản hồi TB"
           />
         </div>
       </div>

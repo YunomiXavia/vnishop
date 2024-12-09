@@ -5,19 +5,33 @@ import {ErrorResponseProps} from "@/types/error/error";
 import {extractError} from "@/utils/utils/helper";
 
 const initialState: SurveyState = {
-  surveys: [],
-  loading: false,
-  error: null,
+    surveys: [],
+    loading: false,
+    error: null,
+    currentPage: 0,
+    totalPages: 0,
+    totalElements: 0,
+    pageSize: 5,
 };
 
 // Get All Surveys
-export const getSurveys = createAsyncThunk<Survey[], void, { rejectValue: ErrorResponseProps }>(
+export const getSurveys = createAsyncThunk<
+    { content: Survey[]; currentPage: number; totalPages: number; totalElements: number; pageSize: number },
+    { page: number; size: number },
+    { rejectValue: ErrorResponseProps }>(
     "/collaborator/surveys/getSurveys",
-    async (_, { rejectWithValue }) => {
+    async ({ page, size }, { rejectWithValue }) => {
       try {
-        const response = await axiosInstance.get("/collaborator/surveys");
+        const response = await axiosInstance.get(`/collaborator/surveys?page=${page}&size=${size}`);
         if (response.data.code === 2000) {
-          return response.data.result as Survey[];
+            const data = response.data.result.data;
+            return {
+                content: data.content,
+                currentPage: data.number,
+                totalPages: data.totalPages,
+                totalElements: data.totalElements,
+                pageSize: data.size,
+            };
         } else {
           return rejectWithValue({
             code: response.data.code,
@@ -125,8 +139,12 @@ const surveySlice = createSlice({
           state.error = null;
         })
         .addCase(getSurveys.fulfilled, (state, action) => {
-          state.loading = false;
-          state.surveys = action.payload;
+            state.loading = false;
+            state.surveys = action.payload.content;
+            state.currentPage = action.payload.currentPage;
+            state.totalPages = action.payload.totalPages;
+            state.totalElements = action.payload.totalElements;
+            state.pageSize = action.payload.pageSize;
         })
         .addCase(getSurveys.rejected, (state, action) => {
           state.loading = false;

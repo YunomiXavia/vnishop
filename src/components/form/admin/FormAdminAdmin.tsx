@@ -94,6 +94,7 @@ const FormAdminAdmin: React.FC = () => {
             setShowForm(false);
             methods.reset();
             setIsPasswordUpdated(false);
+            await dispatch(getAdmins({ page: currentPage, size: pageSize }));
         } catch (error: unknown) {
             const err = extractError(error);
             setNotification({

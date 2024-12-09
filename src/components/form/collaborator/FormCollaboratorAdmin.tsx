@@ -174,6 +174,8 @@ const FormCollaboratorAdmin: React.FC = () => {
       }
       reset();
       setIsEditing(false);
+
+      await dispatch(getCollaborators({ page: currentPage, size: pageSize }));
     } catch (error: unknown) {
       const err = extractError(error);
       setNotification({

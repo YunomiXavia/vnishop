@@ -5,6 +5,10 @@ export interface ProductState {
   products: Product[];
   loading: boolean;
   error: ErrorResponseProps | null;
+  currentPage: number,
+  totalPages: number,
+  totalElements: number,
+  pageSize: number,
 }
 
 // Product Props
@@ -17,6 +21,7 @@ export interface Product {
   subscriptionDuration: number;
   category: string;
   productCode: string;
+  originalImageName: string;
 }
 
 // Product Creation Props

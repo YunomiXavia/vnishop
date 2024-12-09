@@ -26,6 +26,7 @@ export interface FormCreateProductData {
     stock: number;
     subscriptionDuration: number;
     category: string;
+    image: File | null;
 }
 
 export interface FormUpdateProductData {
@@ -34,6 +35,8 @@ export interface FormUpdateProductData {
     description: string;
     stock: number;
     subscriptionDuration: number;
+    category: string;
+    image: File | null;
 }
 
 

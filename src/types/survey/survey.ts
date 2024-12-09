@@ -36,4 +36,8 @@ export interface SurveyState {
   surveys: Survey[];
   loading: boolean;
   error: ErrorResponseProps | null;
+  currentPage: number,
+  totalPages: number,
+  totalElements: number,
+  pageSize: number,
 }

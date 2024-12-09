@@ -22,10 +22,12 @@ import { FormProvider, useForm } from "react-hook-form";
 import { FormCreateProductData, FormUpdateProductData } from "@/types/component/form/form";
 import InputTextProductForm from "@/components/input/InputTextProductForm";
 import {extractError} from "@/utils/utils/helper";
+import {BASE_URL} from "@/types/api/api";
+import Image from "next/image";
 
 const FormProductAdmin: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { products, loading: productLoading, error: productError } = useAppSelector((state) => state.products);
+  const { products, loading: productLoading, error: productError, currentPage, totalPages, totalElements, pageSize } = useAppSelector((state) => state.products);
   const { categories } = useAppSelector((state) => state.categories);
 
   const [showFormCreate, setShowFormCreate] = useState(false);
@@ -35,22 +37,10 @@ const FormProductAdmin: React.FC = () => {
 
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(
-      null
-  );
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
-  const totalPages = Math.ceil(products.length / rowsPerPage);
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
   const [stockFilter, setStockFilter] = useState<number | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [subscriptionDurationFilter, setSubscriptionDurationFilter] = useState<number | null>(null);
 
   const createFormMethods = useForm<FormCreateProductData>({
@@ -61,6 +51,7 @@ const FormProductAdmin: React.FC = () => {
       stock: 0,
       subscriptionDuration: 0,
       category: "",
+      image: undefined,
     },
   });
 
@@ -71,6 +62,8 @@ const FormProductAdmin: React.FC = () => {
       description: "",
       stock: 0,
       subscriptionDuration: 0,
+      category: "",
+      image: undefined,
     },
   });
 
@@ -78,10 +71,32 @@ const FormProductAdmin: React.FC = () => {
 
   const onCreateSubmit = async (data: FormCreateProductData) => {
     try {
-      const resultAction = await dispatch(createProduct(data));
+      const imageFile = data.image && data.image[0] ? data.image[0] : null;
+      if (imageFile) {
+        if (!["image/jpeg", "image/jpg", "image/png"].includes(imageFile.type)) {
+          setNotification({ message: "Chỉ cho phép định dạng jpg/jpeg/png", type: "error" });
+          return;
+        }
+        if (imageFile.size > 2 * 1024 * 1024) {
+          setNotification({ message: "Dung lượng ảnh tối đa 2MB", type: "error" });
+          return;
+        }
+      }
+
+      const formData = new FormData();
+      formData.append("productName", data.productName);
+      formData.append("price", data.price.toString());
+      formData.append("description", data.description);
+      formData.append("stock", data.stock.toString());
+      formData.append("subscriptionDuration", data.subscriptionDuration.toString());
+      formData.append("category", data.category);
+      if (imageFile) formData.append("image", imageFile);
+
+      const resultAction = await dispatch(createProduct(formData));
       if (createProduct.fulfilled.match(resultAction)) {
         setNotification({ message: "Tạo sản phẩm mới thành công!", type: "success" });
         setShowFormCreate(false);
+        await dispatch(getProducts({ page: currentPage, size: pageSize }));
       } else if (createProduct.rejected.match(resultAction) && resultAction.payload) {
         const error = resultAction.payload;
         setNotification({ message: `Lỗi ${error.code}: ${error.message}`, type: "error" });
@@ -98,10 +113,32 @@ const FormProductAdmin: React.FC = () => {
   const onUpdateSubmit = async (data: FormUpdateProductData) => {
     if (!currentProductId) return;
     try {
-      const resultAction = await dispatch(updateProduct({ id: currentProductId, productData: data }));
+      const imageFile = data.image && data.image[0] ? data.image[0] : null;
+      if (imageFile) {
+        if (!["image/jpeg", "image/jpg", "image/png"].includes(imageFile.type)) {
+          setNotification({ message: "Chỉ cho phép định dạng jpg/jpeg/png", type: "error" });
+          return;
+        }
+        if (imageFile.size > 2 * 1024 * 1024) {
+          setNotification({ message: "Dung lượng ảnh tối đa 2MB", type: "error" });
+          return;
+        }
+      }
+
+      const formData = new FormData();
+      formData.append("productName", data.productName);
+      formData.append("price", data.price.toString());
+      formData.append("description", data.description);
+      formData.append("stock", data.stock.toString());
+      formData.append("subscriptionDuration", data.subscriptionDuration.toString());
+      formData.append("category", data.category);
+      if (imageFile) formData.append("image", imageFile);
+
+      const resultAction = await dispatch(updateProduct({ id: currentProductId, formData }));
       if (updateProduct.fulfilled.match(resultAction)) {
         setNotification({ message: "Cập nhật sản phẩm thành công!", type: "success" });
         setShowFormUpdate(false);
+        await dispatch(getProducts({ page: currentPage, size: pageSize }));
       } else if (updateProduct.rejected.match(resultAction) && resultAction.payload) {
         const error = resultAction.payload;
         setNotification({ message: `Lỗi ${error.code}: ${error.message}`, type: "error" });
@@ -123,6 +160,8 @@ const FormProductAdmin: React.FC = () => {
       description: product.description,
       stock: product.stock,
       subscriptionDuration: product.subscriptionDuration,
+      category: product.category,
+      image: undefined,
     });
     setShowFormUpdate(true);
   };
@@ -184,13 +223,13 @@ const FormProductAdmin: React.FC = () => {
       const excelData = products.map((product, index) => ({
         STT: index + 1,
         ID: product.id,
-        ["Tên sản phẩm"]: product.productName,
+        ["Tên"]: product.productName,
         ["Giá (VND)"]: product.price,
         ["Mô tả"]: product.description,
-        ["Tồn kho"]: product.stock,
-        ["Thời lượng đăng ký (ngày)"]: product.subscriptionDuration,
+        ["Kho"]: product.stock,
+        ["Thời lượng"]: product.subscriptionDuration,
         ["Danh mục"]: product.category,
-        ["Mã sản phẩm"]: product.productCode,
+        ["Mã SP"]: product.productCode,
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -221,12 +260,12 @@ const FormProductAdmin: React.FC = () => {
               : 0;
 
       const overviewData = [
-        { ["Chỉ số"]: "Tổng số sản phẩm", ["Giá trị"]: totalProducts },
-        { ["Chỉ số"]: "Tổng giá trị (VND)", ["Giá trị"]: totalValue.toLocaleString() },
+        { ["Chỉ số"]: "Tổng SP", ["Giá trị"]: totalProducts },
+        { ["Chỉ số"]: "Tổng tiền (VND)", ["Giá trị"]: totalValue.toLocaleString() },
         { ["Chỉ số"]: "Còn hàng", ["Giá trị"]: inStockCount },
         { ["Chỉ số"]: "Hết hàng", ["Giá trị"]: outOfStockCount },
         {
-          ["Chỉ số"]: "Thời lượng đăng ký trung bình (ngày)",
+          ["Chỉ số"]: "Thời lượng TB",
           ["Giá trị"]: averageSubscriptionDuration.toFixed(2),
         },
       ];
@@ -238,7 +277,7 @@ const FormProductAdmin: React.FC = () => {
 
       const categoryData = Object.keys(categoryDistribution).map((category) => ({
         ["Danh mục"]: category,
-        ["Số lượng sản phẩm"]: categoryDistribution[category],
+        ["SL SP"]: categoryDistribution[category],
       }));
 
       const topSubscriptionProducts = [...products]
@@ -246,20 +285,20 @@ const FormProductAdmin: React.FC = () => {
           .slice(0, 5);
 
       const topSubscriptionProductsData = topSubscriptionProducts.map((product) => ({
-        ["Tên sản phẩm"]: product.productName,
-        ["Thời lượng đăng ký (ngày)"]: product.subscriptionDuration,
+        ["Tên"]: product.productName,
+        ["Thời lượng"]: product.subscriptionDuration,
       }));
 
       const workbook = XLSX.utils.book_new();
 
       const overviewWorksheet = XLSX.utils.json_to_sheet(overviewData);
-      XLSX.utils.book_append_sheet(workbook, overviewWorksheet, "Thống kê tổng quan");
+      XLSX.utils.book_append_sheet(workbook, overviewWorksheet, "Tổng quan");
 
       const categoryWorksheet = XLSX.utils.json_to_sheet(categoryData);
-      XLSX.utils.book_append_sheet(workbook, categoryWorksheet, "Phân phối danh mục");
+      XLSX.utils.book_append_sheet(workbook, categoryWorksheet, "Danh mục");
 
       const topSubscriptionWorksheet = XLSX.utils.json_to_sheet(topSubscriptionProductsData);
-      XLSX.utils.book_append_sheet(workbook, topSubscriptionWorksheet, "Top sản phẩm đăng ký");
+      XLSX.utils.book_append_sheet(workbook, topSubscriptionWorksheet, "Top Đăng ký");
 
       XLSX.writeFile(workbook, "ThongKe_SanPham.xlsx");
 
@@ -273,20 +312,33 @@ const FormProductAdmin: React.FC = () => {
   };
 
   useEffect(() => {
-    dispatch(getProducts());
+    dispatch(getProducts({ page: currentPage, size: pageSize }));
     dispatch(getCategories());
-  }, [dispatch]);
+  }, [dispatch, currentPage, pageSize]);
 
+  // Sửa logic lọc: stock > stockFilter (nếu stockFilter có), subscriptionDuration > subscriptionDurationFilter (nếu có)
   const filteredProducts = products.filter((product) => {
-    const stockCondition = stockFilter ? product.stock <= stockFilter : true;
-    const categoryCondition = categoryFilter ? product.category === categoryFilter : true;
-    const subscriptionCondition = subscriptionDurationFilter
-        ? product.subscriptionDuration >= subscriptionDurationFilter
-        : true;
-    return stockCondition && categoryCondition && subscriptionCondition;
+    let condition = true;
+    if (stockFilter !== null && stockFilter !== undefined && !Number.isNaN(stockFilter)) {
+      condition = condition && product.stock > stockFilter;
+    }
+    if (categoryFilter && categoryFilter.trim() !== "") {
+      condition = condition && product.category === categoryFilter;
+    }
+    if (subscriptionDurationFilter !== null && subscriptionDurationFilter !== undefined && !Number.isNaN(subscriptionDurationFilter)) {
+      condition = condition && product.subscriptionDuration > subscriptionDurationFilter;
+    }
+    return condition;
   });
 
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const totalFilteredProducts = filteredProducts.length;
+  const totalValue = filteredProducts.reduce((sum, product) => sum + product.price * product.stock, 0);
+  const inStockCount = filteredProducts.filter((product) => product.stock > 0).length;
+  const outOfStockCount = totalFilteredProducts - inStockCount;
+  const averageSubscriptionDuration =
+      filteredProducts.length > 0
+          ? filteredProducts.reduce((sum, product) => sum + product.subscriptionDuration, 0) / totalFilteredProducts
+          : 0;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -295,7 +347,6 @@ const FormProductAdmin: React.FC = () => {
       }
     };
     if (showFormCreate) document.addEventListener("click", handleClickOutside);
-    else document.removeEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showFormCreate]);
 
@@ -306,18 +357,8 @@ const FormProductAdmin: React.FC = () => {
       }
     };
     if (showFormUpdate) document.addEventListener("click", handleClickOutside);
-    else document.removeEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showFormUpdate]);
-
-  const totalProducts = products.length;
-  const totalValue = products.reduce((sum, product) => sum + product.price * product.stock, 0);
-  const inStockCount = products.filter((product) => product.stock > 0).length;
-  const outOfStockCount = totalProducts - inStockCount;
-  const averageSubscriptionDuration =
-      products.length > 0
-          ? products.reduce((sum, product) => sum + product.subscriptionDuration, 0) / totalProducts
-          : 0;
 
   if (productLoading) return <p>Đang tải sản phẩm...</p>;
   if (productError) return <p>Lỗi {productError.code}: {productError.message}</p>;
@@ -333,7 +374,7 @@ const FormProductAdmin: React.FC = () => {
     ],
   };
 
-  const categoryDistribution = products.reduce((acc: { [key: string]: number }, product) => {
+  const categoryDistribution = filteredProducts.reduce((acc: { [key: string]: number }, product) => {
     acc[product.category] = (acc[product.category] || 0) + 1;
     return acc;
   }, {});
@@ -342,7 +383,7 @@ const FormProductAdmin: React.FC = () => {
     labels: Object.keys(categoryDistribution),
     datasets: [
       {
-        label: "Số lượng sản phẩm",
+        label: "SL SP",
         data: Object.values(categoryDistribution),
         backgroundColor: "#2196f3",
         hoverBackgroundColor: "#64b5f6",
@@ -350,7 +391,7 @@ const FormProductAdmin: React.FC = () => {
     ],
   };
 
-  const topSubscriptionProducts = [...products]
+  const topSubscriptionProducts = [...filteredProducts]
       .sort((a, b) => b.subscriptionDuration - a.subscriptionDuration)
       .slice(0, 5);
 
@@ -358,7 +399,7 @@ const FormProductAdmin: React.FC = () => {
     labels: topSubscriptionProducts.map((product) => product.productName),
     datasets: [
       {
-        label: "Thời lượng đăng ký (ngày)",
+        label: "Thời lượng",
         data: topSubscriptionProducts.map((product) => product.subscriptionDuration),
         backgroundColor: "#ff9800",
         hoverBackgroundColor: "#ffb74d",
@@ -376,21 +417,21 @@ const FormProductAdmin: React.FC = () => {
 
         <div className="p-4 mx-auto ">
           <div className="flex justify-between mb-4">
-            <h2 className="text-2xl font-semibold text-indigo-700">Quản lý Sản Phẩm</h2>
+            <h2 className="text-2xl font-semibold text-indigo-700">QL Sản Phẩm</h2>
             <div className="flex space-x-2">
               <button
                   className="flex items-center px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={handleExportStatisticsToExcel}
               >
                 <FaFileExcel className="mr-2" />
-                Xuất dữ liệu thống kê sang excel
+                Xuất TK
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={handleExportToExcel}
               >
                 <FaFileExcel className="mr-2" />
-                Xuất sang excel
+                Xuất Excel
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
@@ -402,13 +443,14 @@ const FormProductAdmin: React.FC = () => {
                       stock: 0,
                       subscriptionDuration: 0,
                       category: "",
+                      image: undefined,
                     });
                     setShowFormCreate(true);
                     setShowFormUpdate(false);
                   }}
               >
                 <FaUserPlus className="mr-2" />
-                Thêm sản phẩm mới
+                Thêm
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 ease-in-out transform hover:scale-105"
@@ -416,34 +458,34 @@ const FormProductAdmin: React.FC = () => {
                   disabled={selectedProducts.length === 0}
               >
                 <FaTrash className="mr-2" />
-                Xóa sản phẩm
+                Xóa
               </button>
             </div>
           </div>
 
-          <div className="flex space-x-4 mb-4 justify-end items-center">
+          <div className="flex gap-4 mb-4 justify-end items-center">
             <div>
-              <label className="block text-gray-700">Lọc theo tồn kho:</label>
-              <select
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-                  value={stockFilter || ""}
-                  onChange={(e) => setStockFilter(e.target.value ? +e.target.value : null)}
-              >
-                <option value="">Lọc theo tồn kho</option>
-                <option value="10">Tồn kho {"<"}= 10</option>
-                <option value="50">Tồn kho {"<"}= 50</option>
-                <option value="100">Tồn kho {"<"}= 100</option>
-              </select>
+              <label className="block text-gray-700">Kho {">"}</label>
+              <input
+                  type="number"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  value={stockFilter ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStockFilter(val ? Number(val) : null);
+                  }}
+                  placeholder="Nhập số"
+              />
             </div>
 
             <div>
-              <label className="block text-gray-700">Lọc theo danh mục:</label>
+              <label className="block text-gray-700">Danh mục:</label>
               <select
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-                  value={categoryFilter || ""}
-                  onChange={(e) => setCategoryFilter(e.target.value || null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
               >
-                <option value="">Lọc theo danh mục</option>
+                <option value="">Tất cả</option>
                 {categories.map((category) => (
                     <option key={category.id} value={category.name}>
                       {category.name}
@@ -453,17 +495,17 @@ const FormProductAdmin: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-gray-700">Lọc theo thời lượng đăng ký:</label>
-              <select
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-                  value={subscriptionDurationFilter || ""}
-                  onChange={(e) => setSubscriptionDurationFilter(e.target.value ? +e.target.value : null)}
-              >
-                <option value="">Lọc theo thời lượng</option>
-                <option value="30">Thời lượng {">"}= 30 ngày</option>
-                <option value="60">Thời lượng {">"}= 60 ngày</option>
-                <option value="90">Thời lượng {">"}= 90 ngày</option>
-              </select>
+              <label className="block text-gray-700">Thời lượng {">"}</label>
+              <input
+                  type="number"
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  value={subscriptionDurationFilter ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSubscriptionDurationFilter(val ? Number(val) : null);
+                  }}
+                  placeholder="Nhập số"
+              />
             </div>
           </div>
         </div>
@@ -472,7 +514,7 @@ const FormProductAdmin: React.FC = () => {
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
               <div className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full transform transition-all duration-300 ease-out scale-95">
                 <h3 className="mb-6 text-lg font-semibold text-gray-800 text-center">
-                  Bạn có chắc chắn muốn xóa {selectedProducts.length} sản phẩm đã chọn không?
+                  Bạn có chắc chắn muốn xóa {selectedProducts.length} sản phẩm đã chọn?
                 </h3>
                 <div className="flex justify-center space-x-4">
                   <button
@@ -502,63 +544,73 @@ const FormProductAdmin: React.FC = () => {
                       className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full relative z-50"
                       ref={formRef}
                   >
-                    <h3 className="text-lg font-semibold mb-4">Thêm Sản Phẩm Mới</h3>
+                    <h3 className="text-lg font-semibold mb-4">Thêm SP</h3>
                     <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className="block text-gray-700 mb-2 font-semibold">Ảnh</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-indigo-500 transition-colors">
+                          <input
+                              type="file"
+                              accept=".jpg,.jpeg,.png"
+                              {...createFormMethods.register("image")}
+                              className="block w-full text-sm text-gray-900 cursor-pointer bg-gray-50 focus:outline-none"
+                          />
+                          <p className="text-xs text-gray-500">.jpg/.jpeg/.png, max 2MB</p>
+                        </div>
+                      </div>
                       <InputTextProductForm
                           name="productName"
-                          label="Tên sản phẩm"
+                          label="Tên"
                           placeholder="Tên sản phẩm"
                           required
                           validation={{
-                            minLength: { value: 4, message: "Tên sản phẩm phải có ít nhất 4 ký tự" },
+                            minLength: { value: 4, message: "≥4 ký tự" },
                           }}
                       />
                       <InputTextProductForm
                           name="price"
-                          label="Giá sản phẩm (VND)"
-                          placeholder="Nhập giá sản phẩm"
+                          label="Giá"
+                          placeholder="VND"
                           type="number"
                           required
                           validation={{
-                            min: { value: 0, message: "Giá phải lớn hơn hoặc bằng 0" },
+                            min: { value: 0, message: "≥0" },
                           }}
                       />
                       <InputTextProductForm
                           name="description"
                           label="Mô tả"
-                          placeholder="Nhập mô tả sản phẩm"
+                          placeholder="Mô tả"
                           required
                       />
                       <InputTextProductForm
                           name="stock"
-                          label="Tồn kho"
-                          placeholder="Nhập số lượng tồn kho"
+                          label="Kho"
+                          placeholder="Số lượng"
                           type="number"
                           required
                           validation={{
-                            min: { value: 0, message: "Tồn kho phải lớn hơn hoặc bằng 0" },
+                            min: { value: 0, message: "≥0" },
                           }}
                       />
                       <InputTextProductForm
                           name="subscriptionDuration"
-                          label="Số ngày đăng ký"
-                          placeholder="Nhập số ngày đăng ký"
+                          label="Thời lượng"
+                          placeholder="Ngày"
                           type="number"
                           required
                           validation={{
-                            min: { value: 1, message: "Thời lượng đăng ký phải lớn hơn hoặc bằng 1" },
+                            min: { value: 1, message: "≥1" },
                           }}
                       />
                       <InputTextProductForm
                           name="category"
                           label="Danh mục"
-                          placeholder="Chọn danh mục"
+                          placeholder="Chọn"
                           as="select"
                           required
                       >
-                        <option value="" disabled>
-                          Chọn danh mục
-                        </option>
+                        <option value="" disabled>Chọn</option>
                         {categories.map((cat) => (
                             <option key={cat.id} value={cat.name}>
                               {cat.name}
@@ -578,7 +630,7 @@ const FormProductAdmin: React.FC = () => {
                           type="submit"
                           className="px-6 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 hover:shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105"
                       >
-                        Tạo mới
+                        Tạo
                       </button>
                     </div>
                   </form>
@@ -586,6 +638,7 @@ const FormProductAdmin: React.FC = () => {
               </div>
             </>
         )}
+
         {showFormUpdate && (
             <>
               <div className="fixed inset-0 bg-black opacity-50 z-40 backdrop-blur-sm" onClick={() => setShowFormUpdate(false)}></div>
@@ -596,53 +649,79 @@ const FormProductAdmin: React.FC = () => {
                       className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full relative z-50"
                       ref={formRef}
                   >
-                    <h3 className="text-lg font-semibold mb-4">Cập Nhật Sản Phẩm</h3>
+                    <h3 className="text-lg font-semibold mb-4">Cập nhật SP</h3>
                     <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className="block text-gray-700 mb-2 font-semibold">Ảnh (cập nhật)</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-indigo-500 transition-colors">
+                          <input
+                              type="file"
+                              accept=".jpg,.jpeg,.png"
+                              {...updateFormMethods.register("image")}
+                              className="block w-full text-sm text-gray-900 cursor-pointer bg-gray-50 focus:outline-none"
+                          />
+                          <p className="text-xs text-gray-500">Để trống nếu không đổi</p>
+                        </div>
+                      </div>
                       <InputTextProductForm
                           name="productName"
-                          label="Tên sản phẩm"
-                          placeholder="Nhập tên sản phẩm"
+                          label="Tên"
+                          placeholder="Tên sản phẩm"
                           required
                           validation={{
-                            minLength: { value: 4, message: "Tên sản phẩm phải có ít nhất 4 ký tự" },
+                            minLength: { value: 4, message: "≥4 ký tự" },
                           }}
                       />
                       <InputTextProductForm
                           name="price"
-                          label="Giá sản phẩm (VND)"
-                          placeholder="Nhập giá sản phẩm"
+                          label="Giá"
+                          placeholder="VND"
                           type="number"
                           required
                           validation={{
-                            min: { value: 0, message: "Giá phải lớn hơn hoặc bằng 0" },
+                            min: { value: 0, message: "≥0" },
                           }}
                       />
                       <InputTextProductForm
                           name="description"
                           label="Mô tả"
-                          placeholder="Nhập mô tả sản phẩm"
+                          placeholder="Mô tả"
                           required
                       />
                       <InputTextProductForm
                           name="stock"
-                          label="Tồn kho"
-                          placeholder="Nhập số lượng tồn kho"
+                          label="Kho"
+                          placeholder="Số lượng"
                           type="number"
                           required
                           validation={{
-                            min: { value: 0, message: "Tồn kho phải lớn hơn hoặc bằng 0" },
+                            min: { value: 0, message: "≥0" },
                           }}
                       />
                       <InputTextProductForm
                           name="subscriptionDuration"
-                          label="Số ngày đăng ký"
-                          placeholder="Nhập số ngày đăng ký"
+                          label="Thời lượng"
+                          placeholder="Ngày"
                           type="number"
                           required
                           validation={{
-                            min: { value: 1, message: "Thời lượng đăng ký phải lớn hơn hoặc bằng 1" },
+                            min: { value: 1, message: "≥1" },
                           }}
                       />
+                      <InputTextProductForm
+                          name="category"
+                          label="Danh mục"
+                          placeholder="Chọn"
+                          as="select"
+                          required
+                      >
+                        <option value="" disabled>Chọn</option>
+                        {categories.map((cat) => (
+                            <option key={cat.id} value={cat.name}>
+                              {cat.name}
+                            </option>
+                        ))}
+                      </InputTextProductForm>
                     </div>
                     <div className="flex justify-end mt-4 space-x-2">
                       <button
@@ -670,67 +749,85 @@ const FormProductAdmin: React.FC = () => {
               <table className="min-w-full bg-white border rounded-lg shadow-sm">
                 <thead>
                 <tr className="bg-gray-200 text-gray-700">
-                  <th className="px-4 py-2 text-center">STT</th>
-                  <th className="px-4 py-2 text-center">Tên Sản Phẩm</th>
-                  <th className="px-4 py-2 text-center">Giá (VND)</th>
-                  <th className="px-4 py-2 text-center">Mô Tả</th>
-                  <th className="px-4 py-2 text-center">Tồn Kho</th>
-                  <th className="px-4 py-2 text-center">Danh Mục</th>
-                  <th className="px-4 py-2 text-center">Mã Sản Phẩm</th>
-                  <th className="px-4 py-2 text-center">Thời Lượng Đăng Ký (ngày)</th>
-                  <th className="px-4 py-2 text-center">Chỉnh Sửa</th>
+                  <th className="px-4 py-2 text-center">#</th>
+                  <th className="px-4 py-2 text-center">Ảnh</th>
+                  <th className="px-4 py-2 text-center">Tên</th>
+                  <th className="px-4 py-2 text-center">Giá</th>
+                  <th className="px-4 py-2 text-center">Mô tả</th>
+                  <th className="px-4 py-2 text-center">Kho</th>
+                  <th className="px-4 py-2 text-center">Danh mục</th>
+                  <th className="px-4 py-2 text-center">Mã SP</th>
+                  <th className="px-4 py-2 text-center">Thời lượng</th>
+                  <th className="px-4 py-2 text-center">Sửa</th>
                   <th className="px-4 py-2 text-center">Xóa</th>
                 </tr>
                 </thead>
 
                 <tbody>
                 {filteredProducts.length > 0 ? (
-                    paginatedProducts.map((product, index) => (
-                        <tr
-                            key={product.id}
-                            className={`hover:bg-gray-50 transition ease-in-out 
-                        duration-200 cursor-pointer ${
-                                selectedProducts.includes(product.id) ? "bg-indigo-100" : "hover:bg-gray-50"
-                            }`}
-                            onClick={() => handleRowSelect(product.id)}
-                        >
-                          <td className="border px-4 py-2 text-center">{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                          <td className="border px-4 py-2 text-center">
-                            <span className="text-indigo-600 font-medium">{product.productName}</span>
-                          </td>
-                          <td className="border px-4 py-2 text-center">{formatCurrencyVND(product.price)}</td>
-                          <td className="border px-4 py-2 text-center">{product.description}</td>
-                          <td className="border px-4 py-2 text-center">{product.stock}</td>
-                          <td className="border px-4 py-2 text-center">{product.category}</td>
-                          <td className="border px-4 py-2 text-center">{product.productCode}</td>
-                          <td className="border px-4 py-2 text-center">{product.subscriptionDuration} ngày</td>
-                          <td className="border px-4 py-2 text-center space-x-2">
-                            <button
-                                className="text-blue-600 hover:text-blue-800 transition transform hover:scale-110"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditClick(product);
-                                }}
-                            >
-                              <FaPen />
-                            </button>
-                          </td>
-                          <td className="border px-4 py-2 text-center space-x-2">
-                            <button
-                                className="text-red-600 hover:text-red-800 transition transform hover:scale-110"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteProduct(product.id);
-                                }}
-                            >
-                              <FaTrash />
-                            </button>
-                          </td>
-                        </tr>
-                    ))
+                    filteredProducts.map((product, index) => {
+                      const tinyImageName = product.originalImageName ? product.originalImageName.replace("original_", "tiny_") : "";
+                      const tinyImageUrl = tinyImageName ? `${BASE_URL}/products/${product.productCode}/tiny/${tinyImageName}` : "";
+
+                      return (
+                          <tr
+                              key={product.id}
+                              className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${selectedProducts.includes(product.id) ? "bg-indigo-100" : "hover:bg-gray-50"}`}
+                              onClick={() => handleRowSelect(product.id)}
+                          >
+                            <td className="border px-4 py-2 text-center">{(currentPage * pageSize) + (index + 1)}</td>
+                            <td className="border px-4 py-2 text-center">
+                              {tinyImageUrl ? (
+                                  <div className="flex justify-center">
+                                    <Image
+                                        src={tinyImageUrl}
+                                        alt={product.productName}
+                                        width={40}
+                                        height={40}
+                                        className="rounded"
+                                    />
+                                  </div>
+                              ) : (
+                                  "No Image"
+                              )}
+                            </td>
+                            <td className="border px-4 py-2 text-center">
+                              <span className="text-indigo-600 font-medium">{product.productName}</span>
+                            </td>
+                            <td className="border px-4 py-2 text-center">{formatCurrencyVND(product.price)}</td>
+                            <td className="border px-4 py-2 text-center">{product.description}</td>
+                            <td className="border px-4 py-2 text-center">{product.stock}</td>
+                            <td className="border px-4 py-2 text-center">{product.category}</td>
+                            <td className="border px-4 py-2 text-center">{product.productCode}</td>
+                            <td className="border px-4 py-2 text-center">{product.subscriptionDuration} ngày</td>
+                            <td className="border px-4 py-2 text-center space-x-2">
+                              <button
+                                  className="text-blue-600 hover:text-blue-800 transition transform hover:scale-110"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditClick(product);
+                                  }}
+                              >
+                                <FaPen/>
+                              </button>
+                            </td>
+                            <td className="border px-4 py-2 text-center space-x-2">
+                              <button
+                                  className="text-red-600 hover:text-red-800 transition transform hover:scale-110"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteProduct(product.id);
+                                  }}
+                              >
+                                <FaTrash/>
+                              </button>
+                            </td>
+                          </tr>
+                      );
+                    })
                 ) : (
                     <tr>
-                      <td colSpan={10} className="text-center py-4">
+                      <td colSpan={11} className="text-center py-4">
                         Không có sản phẩm
                       </td>
                     </tr>
@@ -742,23 +839,26 @@ const FormProductAdmin: React.FC = () => {
 
         <div className="flex justify-between items-center mt-4">
           <p className="text-sm text-gray-600">
-            Đang hiển thị từ {Math.min((currentPage - 1) * rowsPerPage + 1, products.length)} đến{" "}
-            {Math.min(currentPage * rowsPerPage, products.length)} trong tổng số {products.length} mục
+            Trang {currentPage + 1} / {totalPages}, Tổng {totalElements} SP
           </p>
 
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
+          <Pagination
+              currentPage={currentPage + 1}
+              totalPages={totalPages}
+              onPageChange={(newPage) => dispatch(getProducts({page: newPage - 1, size: pageSize}))}
+          />
         </div>
 
         <div className="col-span-full bg-white p-6 rounded-lg shadow-lg mb-6 mt-6">
-          <h3 className="text-lg font-semibold text-center mb-4">Thống kê tổng quan</h3>
+          <h3 className="text-lg font-semibold text-center mb-4">Tổng quan</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 text-center">
             <div>
-              <p className="text-xl font-bold">{totalProducts}</p>
-              <p>Tổng sản phẩm</p>
+              <p className="text-xl font-bold">{totalFilteredProducts}</p>
+              <p>Tổng SP</p>
             </div>
             <div>
               <p className="text-xl font-bold">{totalValue.toLocaleString()}</p>
-              <p>Tổng tiền (VND)</p>
+              <p>Tổng tiền</p>
             </div>
             <div>
               <p className="text-xl font-bold">{inStockCount}</p>
@@ -770,7 +870,7 @@ const FormProductAdmin: React.FC = () => {
             </div>
             <div>
               <p className="text-xl font-bold">{averageSubscriptionDuration.toFixed(2)}</p>
-              <p>Thời lượng đăng ký trung bình (ngày)</p>
+              <p>Thời lượng TB</p>
             </div>
           </div>
         </div>
@@ -779,15 +879,17 @@ const FormProductAdmin: React.FC = () => {
           <Chart
               type="pie"
               data={stockChartData}
-              options={{ maintainAspectRatio: false }}
-              title="Tình trạng hàng (Còn hàng và hết hàng)"
+              options={{maintainAspectRatio: false}}
+              title="Hàng"
           />
+
           <Chart
               type="bar"
               data={categoryChartData}
               options={barChartOptions}
-              title="Phân phối sản phẩm theo danh mục"
+              title="Danh mục"
           />
+
           <Chart
               type="bar"
               data={topSubscriptionData}
@@ -795,7 +897,7 @@ const FormProductAdmin: React.FC = () => {
                 ...barChartOptions,
                 indexAxis: "y",
               }}
-              title="5 sản phẩm hàng đầu theo thời lượng đăng ký"
+              title="Top ĐK"
           />
         </div>
       </div>
