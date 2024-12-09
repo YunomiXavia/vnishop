@@ -43,41 +43,23 @@ ChartJS.register(
 
 const FormCollaboratorAdmin: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { collaborators, loading, error } = useAppSelector(
+  const { collaborators, loading, error, currentPage, totalPages, totalElements, pageSize } = useAppSelector(
       (state) => state.collaborators
   );
   const [showForm, setShowForm] = useState(false);
   const [showFormCommission, setShowFormCommission] = useState(false);
-
   const [isEditing, setIsEditing] = useState(false);
-  const [currentCollaboratorId, setCurrentCollaboratorId] = useState<
-      string | null
-  >(null);
-  const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>(
-      []
-  );
+  const [currentCollaboratorId, setCurrentCollaboratorId] = useState<string | null>(null);
+  const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>([]);
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: "success" | "error" | "info";
-  } | null>(null);
+  const [notification, setNotification] = useState<{message: string;type: "success" | "error" | "info";} | null>(null);
 
-  const [selectedCollaboratorId, setSelectedCollaboratorId] = useState<
-      string | null
-  >(null);
+  const [selectedCollaboratorId, setSelectedCollaboratorId] = useState<string | null>(null);
 
-  const [commissionRateFilter, setCommissionRateFilter] = useState<
-      number | null
-  >(null);
-  const [totalOrdersFilter, setTotalOrdersFilter] = useState<number | null>(
-      null
-  );
-  const [commissionEarnedFilter, setCommissionEarnedFilter] = useState<
-      number | null
-  >(null);
-  const [surveyHandledFilter, setSurveyHandledFilter] = useState<number | null>(
-      null
-  );
+  const [commissionRateFilter, setCommissionRateFilter] = useState<number | null>(null);
+  const [totalOrdersFilter, setTotalOrdersFilter] = useState<number | null>(null);
+  const [commissionEarnedFilter, setCommissionEarnedFilter] = useState<number | null>(null);
+  const [surveyHandledFilter, setSurveyHandledFilter] = useState<number | null>(null);
 
   const methods = useForm<FormCollaboratorData>({
     defaultValues: {
@@ -96,42 +78,14 @@ const FormCollaboratorAdmin: React.FC = () => {
     handleSubmit,
     reset,
     setValue,
-    formState: { errors },
   } = methods;
 
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5; // Số dòng hiển thị trên mỗi trang
-  const totalPages = Math.ceil(collaborators.length / rowsPerPage);
-
-  const paginatedCollaborators = collaborators
-      .filter((collaborator) => {
-        if (
-            commissionRateFilter !== null &&
-            collaborator.commissionRate <= commissionRateFilter
-        )
-          return false;
-        if (
-            totalOrdersFilter !== null &&
-            (collaborator.totalOrdersHandled ?? 0) < totalOrdersFilter
-        )
-          return false;
-        if (
-            commissionEarnedFilter !== null &&
-            (collaborator.totalCommissionEarned ?? 0) < commissionEarnedFilter
-        )
-          return false;
-        return !(
-            surveyHandledFilter !== null &&
-            (collaborator.totalSurveyHandled ?? 0) < surveyHandledFilter
-        );
-      })
-      .slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  const handlePageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= totalPages) {
+      dispatch(getCollaborators({ page: newPage - 1, size: pageSize }));
+    }
   };
 
   // Handle Delete Collaborator
@@ -139,10 +93,12 @@ const FormCollaboratorAdmin: React.FC = () => {
     try {
       const resultAction = await dispatch(deleteCollaborator(userId));
       if (deleteCollaborator.fulfilled.match(resultAction)) {
-        setNotification({
-          message: "Xóa cộng tác viên thành công!",
-          type: "success",
-        });
+        setNotification({ message: "Xóa cộng tác viên thành công!", type: "success" });
+      }
+      if (currentPage > 0) {
+        await dispatch(getCollaborators({ page: currentPage - 1, size: pageSize }));
+      } else {
+        await dispatch(getCollaborators({ page: 0, size: pageSize }));
       }
     } catch (error: unknown) {
       const err = extractError(error);
@@ -158,10 +114,12 @@ const FormCollaboratorAdmin: React.FC = () => {
     try {
       const resultAction = await dispatch(deleteCollaborators(userIds));
       if (deleteCollaborators.fulfilled.match(resultAction)) {
-        setNotification({
-          message: "Xóa các cộng tác viên thành công!",
-          type: "success",
-        });
+        setNotification({ message: "Xóa các cộng tác viên thành công!", type: "success" });
+      }
+      if (currentPage > 0) {
+        await dispatch(getCollaborators({ page: currentPage - 1, size: pageSize }));
+      } else {
+        await dispatch(getCollaborators({ page: 0, size: pageSize }));
       }
     } catch (error: unknown) {
       const err = extractError(error);
@@ -263,16 +221,117 @@ const FormCollaboratorAdmin: React.FC = () => {
     setShowForm(false);
   };
 
-  // Handle Export to Excel
+  // Thực hiện lọc
+  const filteredCollaborators = collaborators.filter((col) => {
+    if (commissionRateFilter !== null && col.commissionRate < commissionRateFilter) {
+      return false;
+    }
+    if (totalOrdersFilter !== null && (col.totalOrdersHandled || 0) < totalOrdersFilter) {
+      return false;
+    }
+    if (commissionEarnedFilter !== null && (col.totalCommissionEarned || 0) < commissionEarnedFilter) {
+      return false;
+    }
+    return !(surveyHandledFilter !== null && (col.totalSurveyHandled || 0) < surveyHandledFilter);
+
+  });
+
+  // Tính toán thống kê
+  const totalSpent = filteredCollaborators.reduce(
+      (sum, col) => sum + (col.user.totalSpent || 0),
+      0
+  );
+  const totalOrders = filteredCollaborators.reduce(
+      (sum, col) => sum + (col.totalOrdersHandled || 0),
+      0
+  );
+  const totalSurveys = filteredCollaborators.reduce(
+      (sum, col) => sum + (col.totalSurveyHandled || 0),
+      0
+  );
+  const totalCommission = filteredCollaborators.reduce(
+      (sum, col) => sum + (col.totalCommissionEarned || 0),
+      0
+  );
+
+  // Dữ liệu chart
+  const totalSpentDistribution = filteredCollaborators.map(
+      (collaborator) => collaborator.user.totalSpent || 0
+  );
+
+  const commissionRateDistribution = filteredCollaborators.map(
+      (collaborator) => collaborator.commissionRate || 0
+  );
+
+  const ordersHandledChartData = {
+    labels: filteredCollaborators.map((collaborator) => collaborator.user.username),
+    datasets: [
+      {
+        label: "Tổng đơn đã xử lý",
+        data: filteredCollaborators.map((collaborator) => collaborator.totalOrdersHandled || 0),
+        backgroundColor: "#4caf50",
+        hoverBackgroundColor: "#66bb6a",
+      },
+    ],
+  };
+
+  const surveyHandledChartData = {
+    labels: filteredCollaborators.map((collaborator) => collaborator.user.username),
+    datasets: [
+      {
+        label: "Tổng câu hỏi đã giải quyết",
+        data: filteredCollaborators.map((collaborator) => collaborator.totalSurveyHandled || 0),
+        backgroundColor: "#f44336",
+        hoverBackgroundColor: "#e57373",
+      },
+    ],
+  };
+
+  const commissionEarnedChartData = {
+    labels: filteredCollaborators.map((collaborator) => collaborator.user.username),
+    datasets: [
+      {
+        label: "Tổng hoa hồng đã nhận (VND)",
+        data: filteredCollaborators.map((collaborator) => collaborator.totalCommissionEarned || 0),
+        backgroundColor: "#2196f3",
+        hoverBackgroundColor: "#64b5f6",
+      },
+    ],
+  };
+
+  const totalSpentChartData = {
+    labels: filteredCollaborators.map((collaborator) => collaborator.user.username),
+    datasets: [
+      {
+        label: "Tổng chi tiêu (VND)",
+        data: totalSpentDistribution,
+        backgroundColor: "#2196f3",
+        hoverBackgroundColor: "#64b5f6",
+      },
+    ],
+  };
+
+  const commissionRateChartDataPie = {
+    labels: filteredCollaborators.map((collaborator) => collaborator.user.username),
+    datasets: [
+      {
+        label: "Tỉ lệ hoa hồng",
+        data: Object.values(commissionRateDistribution),
+        backgroundColor: ["#4caf50", "#f44336", "#2196f3", "#ff9800"],
+        hoverBackgroundColor: ["#66bb6a", "#e57373", "#64b5f6", "#ffb74d"],
+      },
+    ],
+  };
+
+  // Export Excel
   const handleExportToExcel = () => {
     try {
-      const excelData = collaborators.map((collaborator, index) => ({
+      const excelData = filteredCollaborators.map((collaborator, index) => ({
         "STT": index + 1,
         "ID": collaborator.id,
         ["Tên đăng nhập"]: collaborator.user.username,
         ["Email"]: collaborator.user.email,
-        ["Họ"]: collaborator.user.lastName,
-        ["Tên"]: collaborator.user.firstName,
+        ["Họ & Tên"]: collaborator.user.lastName + " " + collaborator.user.firstName,
         ["Số điện thoại"]: collaborator.user.phoneNumber,
         ["Ngày sinh"]: collaborator.user.birthDate
             ? new Date(collaborator.user.birthDate).toLocaleDateString()
@@ -307,7 +366,7 @@ const FormCollaboratorAdmin: React.FC = () => {
   const handleExportStatisticsToExcel = () => {
     try {
       // Chuẩn bị dữ liệu thống kê
-      const statisticsData = collaborators.map((collaborator, index) => ({
+      const statisticsData = filteredCollaborators.map((collaborator, index) => ({
         "STT": index + 1,
         ["Tên đăng nhập"]: collaborator.user.username,
         ["Tổng chi tiêu (VND)"]: collaborator.user.totalSpent,
@@ -339,12 +398,10 @@ const FormCollaboratorAdmin: React.FC = () => {
     }
   };
 
-  // Get Collaborators
   useEffect(() => {
-    dispatch(getCollaborators());
+    dispatch(getCollaborators({ page: 0, size: 5 }));
   }, [dispatch]);
 
-  // Handle event when click outside of Form
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -370,7 +427,6 @@ const FormCollaboratorAdmin: React.FC = () => {
     };
   }, [showForm, showFormCommission, reset]);
 
-  // Handle Error Notifications
   useEffect(() => {
     if (error) {
       setNotification({
@@ -379,119 +435,6 @@ const FormCollaboratorAdmin: React.FC = () => {
       });
     }
   }, [error]);
-
-  // Aggregate data
-  const totalSpent = collaborators.reduce(
-      (sum, col) => sum + (col.user.totalSpent || 0),
-      0
-  );
-  const totalOrders = collaborators.reduce(
-      (sum, col) => sum + (col.totalOrdersHandled || 0),
-      0
-  );
-  const totalSurveys = collaborators.reduce(
-      (sum, col) => sum + (col.totalSurveyHandled || 0),
-      0
-  );
-  const totalCommission = collaborators.reduce(
-      (sum, col) => sum + (col.totalCommissionEarned || 0),
-      0
-  );
-
-  // Data for charts
-  const roleDistribution = collaborators.reduce(
-      (acc: { [key: string]: number }, collaborator) => {
-        const role = collaborator.user.role;
-        acc[role] = (acc[role] || 0) + 1;
-        return acc;
-      },
-      {}
-  );
-
-  const totalSpentDistribution = collaborators.map(
-      (collaborator) => collaborator.user.totalSpent || 0
-  );
-
-  const commissionRateDistribution = collaborators.map(
-      (collaborator) => collaborator.commissionRate || 0
-  );
-
-  const ordersHandledChartData = {
-    labels: collaborators.map((collaborator) => collaborator.user.username),
-    datasets: [
-      {
-        label: "Tổng đơn đã xử lý",
-        data: collaborators.map(
-            (collaborator) => collaborator.totalOrdersHandled || 0
-        ),
-        backgroundColor: "#4caf50",
-        hoverBackgroundColor: "#66bb6a",
-      },
-    ],
-  };
-
-  const surveyHandledChartData = {
-    labels: collaborators.map((collaborator) => collaborator.user.username),
-    datasets: [
-      {
-        label: "Tổng câu hỏi đã giải quyết",
-        data: collaborators.map(
-            (collaborator) => collaborator.totalSurveyHandled || 0
-        ),
-        backgroundColor: "#f44336",
-        hoverBackgroundColor: "#e57373",
-      },
-    ],
-  };
-
-  const commissionEarnedChartData = {
-    labels: collaborators.map((collaborator) => collaborator.user.username),
-    datasets: [
-      {
-        label: "Tổng hoa hồng đã nhận (VND)",
-        data: collaborators.map(
-            (collaborator) => collaborator.totalCommissionEarned || 0
-        ),
-        backgroundColor: "#2196f3",
-        hoverBackgroundColor: "#64b5f6",
-      },
-    ],
-  };
-
-  const roleChartData = {
-    labels: Object.keys(roleDistribution),
-    datasets: [
-      {
-        data: Object.values(roleDistribution),
-        backgroundColor: ["#4caf50", "#f44336", "#2196f3", "#ff9800"],
-        hoverBackgroundColor: ["#66bb6a", "#e57373", "#64b5f6", "#ffb74d"],
-      },
-    ],
-  };
-
-  const totalSpentChartData = {
-    labels: collaborators.map((collaborator) => collaborator.user.username),
-    datasets: [
-      {
-        label: "Tổng chi tiêu (VND)",
-        data: totalSpentDistribution,
-        backgroundColor: "#2196f3",
-        hoverBackgroundColor: "#64b5f6",
-      },
-    ],
-  };
-
-  const commissionRateChartDataPie = {
-    labels: collaborators.map((collaborator) => collaborator.user.username),
-    datasets: [
-      {
-        label: "Tỉ lệ hoa hồng",
-        data: Object.values(commissionRateDistribution),
-        backgroundColor: ["#4caf50", "#f44336", "#2196f3", "#ff9800"],
-        hoverBackgroundColor: ["#66bb6a", "#e57373", "#64b5f6", "#ffb74d"],
-      },
-    ],
-  };
 
   if (loading) return <p>Đang tải cộng tác viên...</p>;
 
@@ -539,7 +482,7 @@ const FormCollaboratorAdmin: React.FC = () => {
                   }}
               >
                 <FaUserPlus className="mr-2" />
-                Thêm Cộng Tác Viên Mới
+                Thêm
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 ease-in-out transform hover:scale-105"
@@ -547,7 +490,7 @@ const FormCollaboratorAdmin: React.FC = () => {
                   disabled={selectedCollaborators.length === 0}
               >
                 <FaTrash className="mr-2" />
-                Xóa Nhiều Cộng Tác Viên
+                Xóa nhiều
               </button>
             </div>
           </div>
@@ -556,79 +499,68 @@ const FormCollaboratorAdmin: React.FC = () => {
           <div className="flex gap-4 mb-4 justify-end items-center">
             <div>
               <label className="block text-gray-700">
-                Lọc theo tỉ lệ hoa hồng:
+                HH (≥):
               </label>
-              <select
-                  value={commissionRateFilter || ""}
+              <input
+                  type="number"
+                  step="0.01"
+                  value={commissionRateFilter ?? ""}
                   onChange={(e) =>
                       setCommissionRateFilter(
                           e.target.value ? Number(e.target.value) : null
                       )
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-              >
-                <option value="">Lọc theo tỉ lệ hoa hồng</option>
-                <option value="0.1">{">"}= 0.1</option>
-                <option value="0.2">{">"}= 0.2</option>
-                <option value="0.3">{">"}= 0.3</option>
-              </select>
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  placeholder="Nhập..."
+              />
             </div>
             <div>
               <label className="block text-gray-700">
-                Lọc theo tổng đơn đã xử lý:
+                Đơn (≥):
               </label>
-              <select
-                  value={totalOrdersFilter || ""}
+              <input
+                  type="number"
+                  value={totalOrdersFilter ?? ""}
                   onChange={(e) =>
                       setTotalOrdersFilter(
                           e.target.value ? Number(e.target.value) : null
                       )
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-              >
-                <option value="">Lọc theo tổng đơn hàng</option>
-                <option value="10">{">"}= 10 đơn</option>
-                <option value="20">{">"}= 20 đơn</option>
-                <option value="50">{">"}= 50 đơn</option>
-              </select>
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  placeholder="Nhập..."
+              />
             </div>
             <div>
               <label className="block text-gray-700">
-                Lọc theo tổng hoa hồng đã nhận:
+                HH(VND)(≥):
               </label>
-              <select
-                  value={commissionEarnedFilter || ""}
+              <input
+                  type="number"
+                  value={commissionEarnedFilter ?? ""}
                   onChange={(e) =>
                       setCommissionEarnedFilter(
                           e.target.value ? Number(e.target.value) : null
                       )
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-              >
-                <option value="">Lọc theo hoa hồng đã nhận</option>
-                <option value="100000">{">"}= 100.000đ</option>
-                <option value="200000">{">"}= 200.000đ</option>
-                <option value="500000">{">"}= 500.000đ</option>
-              </select>
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  placeholder="Nhập..."
+              />
             </div>
             <div>
               <label className="block text-gray-700">
-                Lọc theo tổng câu hỏi đã giải quyết:
+                Câu hỏi (≥):
               </label>
-              <select
-                  value={surveyHandledFilter || ""}
+              <input
+                  type="number"
+                  value={surveyHandledFilter ?? ""}
                   onChange={(e) =>
                       setSurveyHandledFilter(
                           e.target.value ? Number(e.target.value) : null
                       )
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-              >
-                <option value="">Lọc theo tổng câu hỏi</option>
-                <option value="5">{">"}= 5 câu hỏi</option>
-                <option value="10">{">"}= 10 câu hỏi</option>
-                <option value="50">{">"}= 50 câu hỏi</option>
-              </select>
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  placeholder="Nhập..."
+              />
             </div>
           </div>
         </div>
@@ -638,8 +570,7 @@ const FormCollaboratorAdmin: React.FC = () => {
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
               <div className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full transform transition-all duration-300 ease-out scale-95">
                 <h3 className="mb-6 text-lg font-semibold text-gray-800 text-center">
-                  Bạn có chắc chắn muốn xóa {selectedCollaborators.length} cộng tác
-                  viên đã chọn không?
+                  Xóa {selectedCollaborators.length} CTV đã chọn?
                 </h3>
                 <div className="flex justify-center space-x-4">
                   <button
@@ -678,21 +609,19 @@ const FormCollaboratorAdmin: React.FC = () => {
                       ref={formRef}
                   >
                     <h3 className="text-lg font-semibold mb-4">
-                      {isEditing
-                          ? "Cập nhật cộng tác viên"
-                          : "Thêm Cộng Tác Viên Mới"}
+                      {isEditing ? "Cập nhật" : "Thêm CTV"}
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
                       {/* Tên đăng nhập */}
                       <InputTextForm
                           name="username"
-                          label="Tên đăng nhập"
+                          label="Tên ĐN"
                           placeholder="Tên đăng nhập"
                           required={!isEditing}
                           validation={{
                             minLength: {
                               value: 4,
-                              message: "Tên đăng nhập phải có ít nhất 4 ký tự",
+                              message: ">=4 ký tự",
                             },
                           }}
                           disabled={isEditing}
@@ -702,14 +631,14 @@ const FormCollaboratorAdmin: React.FC = () => {
                       {!isEditing && (
                           <InputTextForm
                               name="password"
-                              label="Mật khẩu"
+                              label="MK"
                               placeholder="Mật khẩu"
                               type="password"
                               required={!isEditing}
                               validation={{
                                 minLength: {
                                   value: 8,
-                                  message: "Mật khẩu phải có ít nhất 8 ký tự",
+                                  message: ">=8 ký tự",
                                 },
                               }}
                               isPassword
@@ -741,7 +670,7 @@ const FormCollaboratorAdmin: React.FC = () => {
                           validation={{
                             maxLength: {
                               value: 50,
-                              message: "Tên không được vượt quá 50 ký tự",
+                              message: "≤50 ký tự",
                             },
                           }}
                       />
@@ -755,21 +684,21 @@ const FormCollaboratorAdmin: React.FC = () => {
                           validation={{
                             maxLength: {
                               value: 50,
-                              message: "Họ không được vượt quá 50 ký tự",
+                              message: "≤50 ký tự",
                             },
                           }}
                       />
 
-                      {/* Số điện thoại */}
+                      {/* SĐT */}
                       <InputTextForm
                           name="phoneNumber"
-                          label="Số điện thoại"
-                          placeholder="Số điện thoại"
+                          label="ĐT"
+                          placeholder="SĐT"
                           required
                           validation={{
                             pattern: {
                               value: /^[0-9]{10,11}$/,
-                              message: "Số điện thoại không hợp lệ",
+                              message: "SĐT không hợp lệ",
                             },
                           }}
                       />
@@ -777,38 +706,38 @@ const FormCollaboratorAdmin: React.FC = () => {
                       {/* Ngày sinh */}
                       <InputTextForm
                           name="birthDate"
-                          label="Ngày sinh"
+                          label="Sinh"
                           placeholder="Ngày sinh"
                           type="date"
                           required
                           validation={{
                             validate: (value: Date | null) => {
-                              if (!value) return "Ngày sinh là bắt buộc";
+                              if (!value) return "Bắt buộc";
                               const today = new Date();
                               return (
                                   value <= today ||
-                                  "Ngày sinh không được vượt quá ngày hôm nay"
+                                  "Không vượt quá hôm nay"
                               );
                             },
                           }}
                       />
 
-                      {/* Tỉ lệ hoa hồng */}
+                      {/* HH */}
                       {!isEditing && (
                           <InputTextForm
                               name="commissionRate"
-                              label="Tỉ lệ hoa hồng"
-                              placeholder="Tỉ lệ hoa hồng"
+                              label="HH"
+                              placeholder="Hoa hồng"
                               type="number"
                               required={!isEditing}
                               validation={{
                                 min: {
                                   value: 0,
-                                  message: "Tỉ lệ hoa hồng phải lớn hơn hoặc bằng 0",
+                                  message: "≥0",
                                 },
                                 max: {
                                   value: 1,
-                                  message: "Tỉ lệ hoa hồng phải nhỏ hơn hoặc bằng 1",
+                                  message: "≤1",
                                 },
                               }}
                           />
@@ -859,24 +788,24 @@ const FormCollaboratorAdmin: React.FC = () => {
                       ref={formRef}
                   >
                     <h3 className="text-lg font-semibold mb-4">
-                      Chỉnh sửa tỉ lệ hoa hồng
+                      Sửa HH
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
-                      {/* Tỉ lệ hoa hồng */}
+                      {/* HH */}
                       <InputTextForm
                           name="commissionRate"
-                          label="Tỉ lệ hoa hồng"
-                          placeholder="Tỉ lệ hoa hồng"
+                          label="HH"
+                          placeholder="Hoa hồng"
                           type="number"
                           required
                           validation={{
                             min: {
                               value: 0,
-                              message: "Tỉ lệ hoa hồng phải lớn hơn hoặc bằng 0",
+                              message: "≥0",
                             },
                             max: {
                               value: 1,
-                              message: "Tỉ lệ hoa hồng phải nhỏ hơn hoặc bằng 1",
+                              message: "≤1",
                             },
                           }}
                       />
@@ -911,30 +840,25 @@ const FormCollaboratorAdmin: React.FC = () => {
           <table className="min-w-full bg-white border rounded-lg shadow-sm">
             <thead>
             <tr className="bg-gray-200 text-gray-700">
-              <th className="px-4 py-2 text-center">STT</th>
-              <th className="px-4 py-2 text-center">Tên đăng nhập</th>
-              <th className="px-4 py-2 text-center">Email</th>
+              <th className="px-4 py-2 text-center">#</th>
+              <th className="px-4 py-2 text-center">Tên ĐN</th>
+              <th className="px-4 py-2 text-center">Mail/ĐT</th>
               <th className="px-4 py-2 text-center">Vai trò</th>
-              <th className="px-4 py-2 text-center">Tên</th>
-              <th className="px-4 py-2 text-center">Họ</th>
-              <th className="px-4 py-2 text-center">Số điện thoại</th>
-              <th className="px-4 py-2 text-center">Ngày tham gia</th>
-              <th className="px-4 py-2 text-center">Tổng chi tiêu (VND)</th>
-              <th className="px-4 py-2 text-center">Ngày sinh</th>
-              <th className="px-4 py-2 text-center">Mã giới thiệu</th>
-              <th className="px-4 py-2 text-center">Tỉ lệ hoa hồng</th>
-              <th className="px-4 py-2 text-center">Tổng đơn đã xử lý</th>
-              <th className="px-4 py-2 text-center">
-                Tổng câu hỏi đã giải quyết
-              </th>
-              <th className="px-4 py-2 text-center">Tổng hoa hồng đã nhận (VND)</th>
-              <th className="px-4 py-2 text-center">Chỉnh sửa</th>
-              <th className="px-4 py-2 text-center">Xóa</th>
+              <th className="px-4 py-2 text-center">Họ & Tên</th>
+              <th className="px-4 py-2 text-center">Tham gia</th>
+              <th className="px-4 py-2 text-center">Chi tiêu</th>
+              <th className="px-4 py-2 text-center">Sinh</th>
+              <th className="px-4 py-2 text-center">Mã GT</th>
+              <th className="px-4 py-2 text-center">HH</th>
+              <th className="px-4 py-2 text-center">Đơn</th>
+              <th className="px-4 py-2 text-center">Câu hỏi</th>
+              <th className="px-4 py-2 text-center">Hoa hồng</th>
+              <th className="px-4 py-2 text-center">X</th>
             </tr>
             </thead>
             <tbody>
-            {paginatedCollaborators.length > 0 ? (
-                paginatedCollaborators.map((collaborator, index) => (
+            {filteredCollaborators.length > 0 ? (
+                filteredCollaborators.map((collaborator, index) => (
                     <tr
                         key={collaborator.id}
                         className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${
@@ -948,51 +872,42 @@ const FormCollaboratorAdmin: React.FC = () => {
                         }}
                     >
                       <td className="border px-4 py-2 text-center">
-                        {(currentPage - 1) * rowsPerPage + index + 1}
+                        {(currentPage * pageSize) + (index + 1)}
                       </td>
                       <td className="border px-4 py-2 text-center">
-                    <span className="text-indigo-600 font-medium">
-                      {collaborator.user.username}
-                    </span>
+                        <span className="text-indigo-600 font-medium">
+                          {collaborator.user.username}
+                        </span>
                       </td>
                       <td className="border px-4 py-2 text-center">
-                        {collaborator.user.email}
+                        <span>{collaborator.user.email}</span>
+                        <div>{formatPhoneNumber(collaborator.user.phoneNumber)}</div>
                       </td>
                       <td className="border px-4 py-2 text-center">
-                    <span
-                        className={`px-2 py-1 rounded-full text-white text-sm ${
-                            collaborator.user.role === "Admin"
-                                ? "bg-green-500"
-                                : collaborator.user.role === "Collaborator"
-                                    ? "bg-red-500"
-                                    : "bg-indigo-500"
-                        }`}
-                    >
-                      {collaborator.user.role}
-                    </span>
+                        <span
+                            className={`px-2 py-1 rounded-full text-white text-sm ${
+                                collaborator.user.role === "Admin"
+                                    ? "bg-green-500"
+                                    : collaborator.user.role === "Collaborator"
+                                        ? "bg-red-500"
+                                        : "bg-indigo-500"
+                            }`}
+                        >
+                          {collaborator.user.role}
+                        </span>
                       </td>
                       <td className="border px-4 py-2 text-center">
-                        {collaborator.user.firstName}
+                        {collaborator.user.lastName + " " + collaborator.user.firstName}
                       </td>
                       <td className="border px-4 py-2 text-center">
-                        {collaborator.user.lastName}
-                      </td>
-                      <td className="border px-4 py-2 text-center">
-                        {formatPhoneNumber(collaborator.user.phoneNumber)}
-                      </td>
-                      <td className="border px-4 py-2 text-center">
-                        {new Date(
-                            collaborator.user.dateJoined
-                        ).toLocaleDateString()}
+                        {new Date(collaborator.user.dateJoined).toLocaleDateString()}
                       </td>
                       <td className="border px-4 py-2 text-center">
                         {formatCurrencyVND(collaborator.user.totalSpent)}
                       </td>
                       <td className="border px-4 py-2 text-center">
                         {collaborator.user.birthDate
-                            ? new Date(
-                                collaborator.user.birthDate
-                            ).toLocaleDateString()
+                            ? new Date(collaborator.user.birthDate).toLocaleDateString()
                             : "N/A"}
                       </td>
                       <td className="border px-4 py-2 text-center">
@@ -1034,7 +949,7 @@ const FormCollaboratorAdmin: React.FC = () => {
                 ))
             ) : (
                 <tr>
-                  <td colSpan={17} className="text-center py-4">
+                  <td colSpan={14} className="text-center py-4">
                     Không có cộng tác viên
                   </td>
                 </tr>
@@ -1043,31 +958,23 @@ const FormCollaboratorAdmin: React.FC = () => {
           </table>
         </div>
 
-        {/* FormOrder Component */}
         {selectedCollaboratorId && (
             <div className="mt-4">
               <FormOrder collaboratorId={selectedCollaboratorId} />
             </div>
         )}
 
-        {/* Pagination with Showing Entries */}
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-gray-600">
-            Đang hiển thị từ{" "}
-            {Math.min((currentPage - 1) * rowsPerPage + 1, collaborators.length)}{" "}
-            đến{" "}
-            {Math.min(currentPage * rowsPerPage, collaborators.length)} trong tổng
-            cộng {collaborators.length} mục
+            Đang hiển thị trang {currentPage + 1} trên {totalPages}, tổng số {totalElements} mục
           </div>
-
           <Pagination
-              currentPage={currentPage}
+              currentPage={currentPage + 1}
               totalPages={totalPages}
               onPageChange={handlePageChange}
           />
         </div>
 
-        {/* Thống kê tổng hợp */}
         <div className="col-span-full bg-white p-6 rounded-lg shadow-lg mb-6 mt-6">
           <h3 className="text-lg font-semibold text-center mb-4">
             Thống kê tổng hợp
@@ -1077,62 +984,55 @@ const FormCollaboratorAdmin: React.FC = () => {
               <p className="text-xl font-bold">
                 {formatCurrencyVND(totalSpent)}
               </p>
-              <p>Tổng chi tiêu (VND)</p>
+              <p>Chi tiêu</p>
             </div>
             <div>
               <p className="text-xl font-bold">{totalOrders}</p>
-              <p>Tổng đơn đã xử lý</p>
+              <p>Đơn</p>
             </div>
             <div>
               <p className="text-xl font-bold">{totalSurveys}</p>
-              <p>Tổng câu hỏi đã giải quyết</p>
+              <p>Câu hỏi</p>
             </div>
             <div>
               <p className="text-xl font-bold">
                 {formatCurrencyVND(totalCommission)}
               </p>
-              <p>Tổng hoa hồng (VND)</p>
+              <p>Hoa hồng</p>
             </div>
           </div>
         </div>
 
-        {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-8 mx-auto max-w-8xl px-4">
-          <Chart
-              type="pie"
-              data={roleChartData}
-              options={{ maintainAspectRatio: true }}
-              title="Phân phối vai trò"
-          />
           <Chart
               type="bar"
               data={totalSpentChartData}
               options={barChartOptions}
-              title="Phân phối tổng chi tiêu (VND)"
+              title="Chi tiêu"
           />
           <Chart
               type="bar"
               data={commissionRateChartDataPie}
               options={barChartOptions}
-              title="Phân phối tỉ lệ hoa hồng"
+              title="Tỉ lệ hoa hồng"
           />
           <Chart
               type="bar"
               data={ordersHandledChartData}
               options={barChartOptions}
-              title="Tổng đơn đã xử lý"
+              title="Đơn"
           />
           <Chart
               type="bar"
               data={surveyHandledChartData}
               options={barChartOptions}
-              title="Tổng câu hỏi đã giải quyết"
+              title="Câu hỏi"
           />
           <Chart
               type="bar"
               data={commissionEarnedChartData}
               options={barChartOptions}
-              title="Tổng hoa hồng đã nhận (VND)"
+              title="Hoa hồng"
           />
         </div>
       </div>

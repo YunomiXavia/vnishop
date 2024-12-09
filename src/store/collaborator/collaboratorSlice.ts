@@ -10,32 +10,43 @@ import {extractError} from "@/utils/utils/helper";
 import {ErrorResponseProps} from "@/types/error/error";
 
 const initialState: CollaboratorState = {
-  collaborators: [],
-  loading: false,
-  error: null,
+    collaborators: [],
+    loading: false,
+    error: null,
+    currentPage: 0,
+    totalPages: 0,
+    totalElements: 0,
+    pageSize: 5,
 };
 
-// Get All Collaborators
+// Get Collaborators with Pagination
 export const getCollaborators = createAsyncThunk<
-    Collaborator[],
-    void,
+    { content: Collaborator[]; currentPage: number; totalPages: number; totalElements: number; pageSize: number },
+    { page: number; size: number },
     { rejectValue: ErrorResponseProps }
 >(
     "admin/collaborators/getCollaborators",
-    async (_, { rejectWithValue }) => {
-      try {
-        const response = await axiosInstance.get("/admin/collaborators");
-        if (response.data.code === 2000) {
-          return response.data.result;
-        } else {
-          return rejectWithValue({
-            code: response.data.code,
-            message: response.data.message,
-          });
+    async ({ page, size }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/admin/collaborators?page=${page}&size=${size}`);
+            if (response.data.code === 2000) {
+                const data = response.data.result.data;
+                return {
+                    content: data.content,
+                    currentPage: data.number,
+                    totalPages: data.totalPages,
+                    totalElements: data.totalElements,
+                    pageSize: data.size
+                };
+            } else {
+                return rejectWithValue({
+                    code: response.data.code,
+                    message: response.data.message,
+                });
+            }
+        } catch (error) {
+            return rejectWithValue(extractError(error));
         }
-      } catch (error) {
-        return rejectWithValue(extractError(error));
-      }
     }
 );
 
@@ -185,17 +196,20 @@ const collaboratorSlice = createSlice({
     builder
       // Get Collaborators
         .addCase(getCollaborators.pending, (state) => {
-          state.loading = true;
-          state.error = null;
+            state.loading = true;
+            state.error = null;
         })
         .addCase(getCollaborators.fulfilled, (state, action) => {
-          state.loading = false;
-          state.collaborators = action.payload;
+            state.loading = false;
+            state.collaborators = action.payload.content;
+            state.currentPage = action.payload.currentPage;
+            state.totalPages = action.payload.totalPages;
+            state.totalElements = action.payload.totalElements;
+            state.pageSize = action.payload.pageSize;
         })
         .addCase(getCollaborators.rejected, (state, action) => {
-          state.loading = false;
-          state.error =
-              action.payload || { code: -1, message: "Lấy danh sách cộng tác viên thất bại." };
+            state.loading = false;
+            state.error = action.payload || { code: -1, message: "Lấy danh sách cộng tác viên thất bại." };
         })
       // Create Collaborator
         .addCase(createCollaborator.pending, (state) => {

@@ -194,12 +194,11 @@ const FormAdminAdmin: React.FC = () => {
                 "STT": index + 1,
                 "ID": user.id,
                 ["Tên đăng nhập"]: user.username,
-                "Email": user.email,
-                ["Vai trò"]: user.role,
-                ["Tên"]: user.firstName,
-                ["Họ"]: user.lastName,
+                ["Họ & Tên"]: user.lastName + " " + user.firstName,
+                ["Email"]: user.email,
                 ["Số điện thoại"]: user.phoneNumber,
-                ["Ngày tham gia"]: user.dateJoined,
+                ["Vai trò"]: user.role,
+                ["Ngày tham gia"]: new Date(user.dateJoined).toLocaleDateString(),
                 ["Tổng chi tiêu"]: user.totalSpent,
                 ["Ngày sinh"]: user.birthDate
                     ? new Date(user.birthDate).toLocaleDateString()
@@ -240,53 +239,55 @@ const FormAdminAdmin: React.FC = () => {
 
     if (loading) return <p>Đang tải admin...</p>;
 
+    // Chỉnh sửa cột: rút gọn tên cột, gộp họ & tên, gộp Email/ĐT
     const columns: Column<User>[] = [
         {
-            header: "STT",
+            header: "#",
             render: (item: User) => {
                 const i = users.indexOf(item);
                 return i + 1;
             }
         },
         {
-            header: "Tên đăng nhập",
+            header: "Tên ĐN",
             accessor: "username",
             render: (item: User) => <span className="text-indigo-600 font-medium">{item.username}</span>
         },
-        { header: "Email", accessor: "email" },
         {
-            header: "Vai trò",
-            accessor: "role",
-            render: (user: User) => (
-                <span className="px-2 py-1 rounded-full text-white text-sm bg-indigo-500">
-          {user.role}
-        </span>
+            header: "Mail/ĐT",
+            render: (item: User) => (
+                <div className="flex flex-col items-center">
+                    <span>{item.email}</span>
+                    <span>{formatPhoneNumber(item.phoneNumber)}</span>
+                </div>
             )
         },
-        { header: "Tên", accessor: "firstName" },
-        { header: "Họ", accessor: "lastName" },
         {
-            header: "Số điện thoại",
-            accessor: "phoneNumber",
-            render: (item: User) => formatPhoneNumber(item.phoneNumber)
+            header: "Vai trò",
+            render: (user: User) => (
+                <span className="px-2 py-1 rounded-full text-white text-sm bg-indigo-500">
+                    {user.role}
+                </span>
+            )
         },
         {
-            header: "Ngày tham gia",
-            accessor: "dateJoined",
+            header: "Họ & Tên",
+            render: (user: User) => `${user.lastName} ${user.firstName}`
+        },
+        {
+            header: "Tham gia",
             render: (item: User) => new Date(item.dateJoined).toLocaleDateString()
         },
         {
-            header: "Tổng chi tiêu",
-            accessor: "totalSpent",
+            header: "Chi tiêu",
             render: (item: User) => formatCurrencyVND(item.totalSpent)
         },
         {
-            header: "Ngày sinh",
-            accessor: "birthDate",
+            header: "Sinh",
             render: (item: User) => item.birthDate ? new Date(item.birthDate).toLocaleDateString() : "N/A"
         },
         {
-            header: "Chỉnh sửa",
+            header: "Sửa",
             render: (item: User) => (
                 <button
                     onClick={(e) => {
@@ -300,7 +301,7 @@ const FormAdminAdmin: React.FC = () => {
             )
         },
         {
-            header: "Xóa",
+            header: "X",
             render: (item: User) => (
                 <button
                     onClick={(e) => {
@@ -331,11 +332,10 @@ const FormAdminAdmin: React.FC = () => {
                 <div
                     className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
                     <div
-                        className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full
-                transform transition-all duration-300 ease-out scale-95"
+                        className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full transform transition-all duration-300 ease-out scale-95"
                     >
                         <h3 className="mb-6 text-lg font-semibold text-gray-800 text-center">
-                            Bạn có chắc chắn muốn xóa {selectedUsers.length} admin đã chọn không?
+                            Xóa {selectedUsers.length} admin đã chọn?
                         </h3>
                         <div className="flex justify-center space-x-4">
                             <ButtonTable
@@ -357,13 +357,11 @@ const FormAdminAdmin: React.FC = () => {
 
             {showForm && (
                 <div className="fixed inset-0 flex items-center justify-center z-50">
-                    {/* Overlay */}
                     <div
                         className="absolute inset-0 bg-black opacity-50"
                         onClick={() => setShowForm(false)}
                     ></div>
 
-                    {/* Form Container */}
                     <div className="relative z-50">
                         <FormProvider {...methods}>
                             <UserForm
@@ -389,12 +387,10 @@ const FormAdminAdmin: React.FC = () => {
                             onClick={handleExportToExcel}
                         >
                             <FaFileExcel className="mr-2"/>
-                            Xuất dữ liệu ra Excel
+                            Xuất Excel
                         </button>
                         <button
-                            className="flex items-center px-3 py-1 bg-indigo-500 text-white
-                rounded-lg hover:bg-indigo-600 transition duration-200
-                ease-in-out transform hover:scale-105"
+                            className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
                             onClick={() => {
                                 setIsEditing(false);
                                 methods.reset();
@@ -403,7 +399,7 @@ const FormAdminAdmin: React.FC = () => {
                             }}
                         >
                             <FaUserPlus className="mr-2"/>
-                            Thêm Admin mới
+                            Thêm
                         </button>
                         <button
                             className="flex items-center px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 ease-in-out transform hover:scale-105"
@@ -411,7 +407,7 @@ const FormAdminAdmin: React.FC = () => {
                             disabled={selectedUsers.length === 0}
                         >
                             <FaTrash className="mr-2"/>
-                            Xóa nhiều Admin
+                            Xóa nhiều
                         </button>
                     </div>
                 </div>

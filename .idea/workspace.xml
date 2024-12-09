@@ -5,18 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="71aaa85d-e3f4-467a-b9c1-1cebd56e2962" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/app/(dashboard)/admin/admins/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/components/form/admin/FormAdminAdmin.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/admin/FormAdminAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/admin/FormAdminAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/collaborator/FormCollaboratorAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/collaborator/FormCollaboratorAdmin.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/form/user/FormUserAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/user/FormUserAdmin.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/form/user/UserForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/user/UserForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/input/InputTextAuth.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/input/InputTextAuth.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/input/InputTextForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/input/InputTextForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/input/InputTextProductForm.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/input/InputTextProductForm.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/sidebar/SidebarAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/sidebar/SidebarAdmin.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/store/user/userSlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/user/userSlice.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/component/form/form.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/component/form/form.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/user/user.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/user/user.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/store/collaborator/collaboratorSlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/collaborator/collaboratorSlice.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/collaborator/collaborator.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/collaborator/collaborator.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -161,7 +155,8 @@
       <workItem from="1733410969191" duration="22758000" />
       <workItem from="1733452891726" duration="11064000" />
       <workItem from="1733558251215" duration="5369000" />
-      <workItem from="1733730691182" duration="7019000" />
+      <workItem from="1733730691182" duration="8858000" />
+      <workItem from="1733745626780" duration="5774000" />
     </task>
     <servers />
   </component>

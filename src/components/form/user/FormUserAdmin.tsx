@@ -86,33 +86,21 @@ const FormUserAdmin: React.FC = () => {
               updateUser({ id: currentUserId, userData: payload })
           );
           if (updateUser.fulfilled.match(resultAction)) {
-            setNotification({
-              message: "Cập nhật người dùng thành công!",
-              type: "success",
-            });
+            setNotification({ message: "Cập nhật người dùng thành công!", type: "success" });
           }
         } else {
           const { ...updatedData } = data;
           const resultAction = await dispatch(
-              updateUserWithoutPassword({
-                id: currentUserId,
-                userData: updatedData,
-              })
+              updateUserWithoutPassword({ id: currentUserId, userData: updatedData })
           );
           if (updateUserWithoutPassword.fulfilled.match(resultAction)) {
-            setNotification({
-              message: "Cập nhật người dùng thành công!",
-              type: "success",
-            });
+            setNotification({ message: "Cập nhật người dùng thành công!", type: "success" });
           }
         }
       } else {
         const resultAction = await dispatch(createUser(data));
         if (createUser.fulfilled.match(resultAction)) {
-          setNotification({
-            message: "Tạo người dùng thành công!",
-            type: "success",
-          });
+          setNotification({ message: "Tạo người dùng thành công!", type: "success" });
         }
       }
       setShowForm(false);
@@ -146,10 +134,7 @@ const FormUserAdmin: React.FC = () => {
     try {
       const resultAction = await dispatch(deleteUser(userId));
       if (deleteUser.fulfilled.match(resultAction)) {
-        setNotification({
-          message: "Xóa người dùng thành công!",
-          type: "success",
-        });
+        setNotification({ message: "Xóa người dùng thành công!", type: "success" });
       }
       if (currentPage > 0) {
         await dispatch(getUsers({ page: currentPage - 1, size: pageSize }));
@@ -169,10 +154,7 @@ const FormUserAdmin: React.FC = () => {
     try {
       const resultAction = await dispatch(deleteUsers(userIds));
       if (deleteUsers.fulfilled.match(resultAction)) {
-        setNotification({
-          message: "Xóa các người dùng thành công!",
-          type: "success",
-        });
+        setNotification({ message: "Xóa các người dùng thành công!", type: "success" });
       }
       if (currentPage > 0) {
         await dispatch(getUsers({ page: currentPage - 1, size: pageSize }));
@@ -248,11 +230,10 @@ const FormUserAdmin: React.FC = () => {
         "ID": user.id,
         ["Tên đăng nhập"]: user.username,
         "Email": user.email,
-        ["Vai trò"]: user.role,
-        ["Tên"]: user.firstName,
-        ["Họ"]: user.lastName,
+        ["Họ & Tên"]: user.lastName + " " + user.firstName,
         ["Số điện thoại"]: user.phoneNumber,
-        ["Ngày tham gia"]: user.dateJoined,
+        ["Vai trò"]: user.role,
+        ["Ngày tham gia"]: new Date(user.dateJoined).toLocaleDateString(),
         ["Tổng chi tiêu"]: user.totalSpent,
         ["Ngày sinh"]: user.birthDate
             ? new Date(user.birthDate).toLocaleDateString()
@@ -266,79 +247,9 @@ const FormUserAdmin: React.FC = () => {
 
       XLSX.writeFile(workbook, "NguoiDung.xlsx");
 
-      setNotification({
-        message: "Xuất dữ liệu thành công!",
-        type: "success",
-      });
+      setNotification({message: "Xuất dữ liệu thành công!", type: "success"});
     } catch (error) {
-      setNotification({
-        message: `Xuất dữ liệu thất bại: ${error}`,
-        type: "error",
-      });
-    }
-  };
-
-  const handleExportStatisticsToExcel = () => {
-    try {
-      const monthlyJoinsDataFormatted = Object.keys(monthlyJoins).map(
-          (month) => ({
-            ["Tháng"]: month,
-            ["Số lượng tham gia"]: monthlyJoins[month],
-          })
-      );
-
-      const ageDistributionDataFormatted = Object.keys(ageDistribution).map(
-          (ageGroup) => ({
-            ["Nhóm tuổi"]: ageGroup,
-            ["Số lượng"]: ageDistribution[ageGroup],
-          })
-      );
-
-      const topSpendersDataFormatted = topSpenders.map((spender) => ({
-        ["Tên đăng nhập"]: spender.username,
-        ["Tổng chi tiêu"]: spender.totalSpent,
-      }));
-
-      const workbook = XLSX.utils.book_new();
-
-      const monthlyJoinsWorksheet = XLSX.utils.json_to_sheet(
-          monthlyJoinsDataFormatted
-      );
-      XLSX.utils.book_append_sheet(
-          workbook,
-          monthlyJoinsWorksheet,
-          "Tham gia hàng tháng"
-      );
-
-      const ageDistributionWorksheet = XLSX.utils.json_to_sheet(
-          ageDistributionDataFormatted
-      );
-      XLSX.utils.book_append_sheet(
-          workbook,
-          ageDistributionWorksheet,
-          "Phân phối độ tuổi"
-      );
-
-      const topSpendersWorksheet = XLSX.utils.json_to_sheet(
-          topSpendersDataFormatted
-      );
-      XLSX.utils.book_append_sheet(
-          workbook,
-          topSpendersWorksheet,
-          "Top 5 Người chi tiêu nhiều nhất"
-      );
-
-      XLSX.writeFile(workbook, "DuLieuThongKe.xlsx");
-
-      setNotification({
-        message: "Xuất dữ liệu thống kê thành công!",
-        type: "success",
-      });
-    } catch (error) {
-      setNotification({
-        message: `Xuất dữ liệu thống kê thất bại: ${error}`,
-        type: "error",
-      });
+      setNotification({message: `Xuất dữ liệu thất bại: ${error}`, type: "error"});
     }
   };
 
@@ -409,53 +320,95 @@ const FormUserAdmin: React.FC = () => {
   const averageMonthlyJoins = numberOfMonths > 0 ? (totalElements / numberOfMonths) : 0;
   const averageSpending = totalElements > 0 ? (totalSpent / totalElements) : 0;
 
+  const handleExportStatisticsToExcel = () => {
+    try {
+      const monthlyJoinsDataFormatted = Object.keys(monthlyJoins).map(
+          (month) => ({
+            ["Tháng"]: month,
+            ["Số lượng tham gia"]: monthlyJoins[month],
+          })
+      );
+
+      const ageDistributionDataFormatted = Object.keys(ageDistribution).map(
+          (ageGroup) => ({
+            ["Nhóm tuổi"]: ageGroup,
+            ["Số lượng"]: ageDistribution[ageGroup],
+          })
+      );
+
+      const topSpendersDataFormatted = topSpenders.map((spender) => ({
+        ["Tên đăng nhập"]: spender.username,
+        ["Tổng chi tiêu"]: spender.totalSpent,
+      }));
+
+      const workbook = XLSX.utils.book_new();
+
+      const monthlyJoinsWorksheet = XLSX.utils.json_to_sheet(monthlyJoinsDataFormatted);
+      XLSX.utils.book_append_sheet(workbook, monthlyJoinsWorksheet, "Tham gia hàng tháng");
+
+      const ageDistributionWorksheet = XLSX.utils.json_to_sheet(ageDistributionDataFormatted);
+      XLSX.utils.book_append_sheet(workbook, ageDistributionWorksheet, "Phân phối độ tuổi");
+
+      const topSpendersWorksheet = XLSX.utils.json_to_sheet(topSpendersDataFormatted);
+      XLSX.utils.book_append_sheet(workbook, topSpendersWorksheet, "Top 5 Người chi tiêu nhiều nhất");
+
+      XLSX.writeFile(workbook, "DuLieuThongKe.xlsx");
+
+      setNotification({message: "Xuất dữ liệu thống kê thành công!", type: "success"});
+    } catch (error) {
+      setNotification({message: `Xuất dữ liệu thống kê thất bại: ${error}`, type: "error"});
+    }
+  };
+
+  // Chỉnh sửa các cột
   const columns: Column<User>[] = [
     {
-      header: "STT",
+      header: "#",
       render: (item: User) => {
         const i = filteredUsers.indexOf(item);
         return i + 1;
       }
     },
     {
-      header: "Tên đăng nhập",
+      header: "Tên ĐN",
       accessor: "username",
       render: (item: User) => <span className="text-indigo-600 font-medium">{item.username}</span>
     },
-    { header: "Email", accessor: "email" },
     {
-      header: "Vai trò",
-      accessor: "role",
-      render: (user: User) => (
-          <span className="px-2 py-1 rounded-full text-white text-sm bg-indigo-500">
-          {user.role}
-        </span>
+      header: "Mail/ĐT",
+      render: (item: User) => (
+          <div className="flex flex-col items-center">
+            <span>{item.email}</span>
+            <span>{formatPhoneNumber(item.phoneNumber)}</span>
+          </div>
       )
     },
-    { header: "Tên", accessor: "firstName" },
-    { header: "Họ", accessor: "lastName" },
     {
-      header: "Số điện thoại",
-      accessor: "phoneNumber",
-      render: (item: User) => formatPhoneNumber(item.phoneNumber)
+      header: "Vai trò",
+      render: (user: User) => (
+          <span className="px-2 py-1 rounded-full text-white text-sm bg-indigo-500">
+            {user.role}
+          </span>
+      )
     },
     {
-      header: "Ngày tham gia",
-      accessor: "dateJoined",
+      header: "Họ & Tên",
+      render: (user: User) => `${user.lastName} ${user.firstName}`
+    },
+    {
+      header: "Tham gia",
       render: (item: User) => new Date(item.dateJoined).toLocaleDateString()
     },
     {
-      header: "Tổng chi tiêu",
-      accessor: "totalSpent",
+      header: "Chi tiêu",
       render: (item: User) => formatCurrencyVND(item.totalSpent)
     },
     {
-      header: "Ngày sinh",
-      accessor: "birthDate",
+      header: "Sinh",
       render: (item: User) => item.birthDate ? new Date(item.birthDate).toLocaleDateString() : "N/A"
     },
     {
-      header: "Chỉnh sửa",
+      header: "Sửa",
       render: (item: User) => (
           <button
               onClick={(e) => {
@@ -469,7 +422,7 @@ const FormUserAdmin: React.FC = () => {
       )
     },
     {
-      header: "Xóa",
+      header: "X",
       render: (item: User) => (
           <button
               onClick={(e) => {
@@ -515,11 +468,10 @@ const FormUserAdmin: React.FC = () => {
             <div
                 className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
               <div
-                  className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full
-                transform transition-all duration-300 ease-out scale-95"
+                  className="bg-white p-8 rounded-lg shadow-lg max-w-sm w-full transform transition-all duration-300 ease-out scale-95"
               >
                 <h3 className="mb-6 text-lg font-semibold text-gray-800 text-center">
-                  Bạn có chắc chắn muốn xóa {selectedUsers.length} người dùng đã chọn không?
+                  Xóa {selectedUsers.length} người dùng đã chọn?
                 </h3>
                 <div className="flex justify-center space-x-4">
                   <ButtonTable
@@ -541,13 +493,10 @@ const FormUserAdmin: React.FC = () => {
 
         {showForm && (
             <div className="fixed inset-0 flex items-center justify-center z-50">
-              {/* Overlay */}
               <div
                   className="absolute inset-0 bg-black opacity-50"
                   onClick={() => setShowForm(false)}
               ></div>
-
-              {/* Form Container */}
               <div className="relative z-50">
                 <FormProvider {...methods}>
                   <UserForm
@@ -573,19 +522,17 @@ const FormUserAdmin: React.FC = () => {
                   onClick={handleExportStatisticsToExcel}
               >
                 <FaFileExcel className="mr-2"/>
-                Xuất dữ liệu thống kê ra Excel
+                Xuất thống kê
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={handleExportToExcel}
               >
                 <FaFileExcel className="mr-2"/>
-                Xuất dữ liệu ra Excel
+                Xuất Excel
               </button>
               <button
-                  className="flex items-center px-3 py-1 bg-indigo-500 text-white
-                rounded-lg hover:bg-indigo-600 transition duration-200
-                ease-in-out transform hover:scale-105"
+                  className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
                   onClick={() => {
                     setIsEditing(false);
                     methods.reset();
@@ -594,7 +541,7 @@ const FormUserAdmin: React.FC = () => {
                   }}
               >
                 <FaUserPlus className="mr-2"/>
-                Thêm người dùng mới
+                Thêm
               </button>
               <button
                   className="flex items-center px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 ease-in-out transform hover:scale-105"
@@ -602,7 +549,7 @@ const FormUserAdmin: React.FC = () => {
                   disabled={selectedUsers.length === 0}
               >
                 <FaTrash className="mr-2"/>
-                Xóa nhiều người dùng
+                Xóa nhiều
               </button>
             </div>
           </div>
@@ -634,7 +581,7 @@ const FormUserAdmin: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Lọc tổng chi tiêu lớn hơn:
+                Lọc chi tiêu {">="}:
               </label>
               <input
                   type="number"
@@ -673,19 +620,19 @@ const FormUserAdmin: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 text-center">
             <div>
               <p className="text-xl font-bold">{totalSpent.toLocaleString()}</p>
-              <p>Tổng chi tiêu</p>
+              <p>Chi tiêu</p>
             </div>
             <div>
               <p className="text-xl font-bold">{averageSpending.toLocaleString(undefined, {maximumFractionDigits: 2})}</p>
-              <p>Chi tiêu trung bình</p>
+              <p>Chi tiêu TB</p>
             </div>
             <div>
               <p className="text-xl font-bold">{averageMonthlyJoins.toLocaleString(undefined, {maximumFractionDigits: 2})}</p>
-              <p>Tham gia hàng tháng (TB)</p>
+              <p>Tham gia TB/tháng</p>
             </div>
             <div>
               <p className="text-xl font-bold">{totalElements}</p>
-              <p>Tổng số người dùng</p>
+              <p>Tổng users</p>
             </div>
           </div>
         </div>
@@ -710,7 +657,7 @@ const FormUserAdmin: React.FC = () => {
                 ...barChartOptions,
                 indexAxis: "y",
               }}
-              title="Top 5 Người chi tiêu nhiều nhất"
+              title="Top 5 chi tiêu"
           />
         </div>
       </div>
