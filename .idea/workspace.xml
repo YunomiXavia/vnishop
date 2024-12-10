@@ -5,19 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="71aaa85d-e3f4-467a-b9c1-1cebd56e2962" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/types/api/api.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/next.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/next.config.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/form/admin/FormAdminAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/admin/FormAdminAdmin.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/form/collaborator/FormCollaboratorAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/collaborator/FormCollaboratorAdmin.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/form/product/FormProductAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/product/FormProductAdmin.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/form/survey/FormSurveyAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/survey/FormSurveyAdmin.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/form/user/FormUserAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/user/FormUserAdmin.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/store/product/productSlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/product/productSlice.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/store/survey/surveySlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/survey/surveySlice.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/component/form/form.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/component/form/form.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/product/product.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/product/product.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/survey/survey.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/survey/survey.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/order/FormOrderAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/order/FormOrderAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/store/order/orderSlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/order/orderSlice.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/order/order.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/order/order.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,23 +44,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;D:/File hoc/projectThucTap/vnishop/src/components/form/service_date&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;D:\\File hoc\\projectThucTap\\vnishop\\node_modules\\typescript\\lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Node.js.orderSlice.ts.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "D:/File hoc/projectThucTap/vnishop/src/components/form/service_date",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "D:\\File hoc\\projectThucTap\\vnishop\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="ReactDesignerToolWindowState">
     <option name="myId2Visible">
       <map>
@@ -164,6 +156,7 @@
       <workItem from="1733558251215" duration="5369000" />
       <workItem from="1733730691182" duration="8858000" />
       <workItem from="1733745626780" duration="19969000" />
+      <workItem from="1733793929664" duration="7477000" />
     </task>
     <servers />
   </component>

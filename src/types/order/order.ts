@@ -1,8 +1,6 @@
 import { ProductBasicInfo } from "@/types/product/product";
 import { AnonymousUser, UserBasicInfo } from "@/types/user/user";
 import { CollaboratorBasicInfo } from "@/types/collaborator/collaborator";
-import { Property } from "csstype";
-import Order = Property.Order;
 import {ErrorResponseProps} from "@/types/error/error";
 
 export interface OrderItemsResponse {
@@ -27,11 +25,23 @@ export interface OrderResponse {
   referralCodeUsed?: string;
 }
 
+export interface OrderPaginatedResponse {
+  orders: OrderResponse[];
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
+}
+
 export interface OrderState {
   orders: OrderResponse[];
   serviceDates: ServiceDate[];
   loading: boolean;
   error: ErrorResponseProps | null;
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
 }
 
 export interface ServiceDate {

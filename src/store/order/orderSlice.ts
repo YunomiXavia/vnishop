@@ -1,59 +1,84 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axiosInstance from "@/utils/api/axiosConfig";
-import { OrderResponse, OrderState } from "@/types/order/order";
+import {OrderPaginatedResponse, OrderResponse, OrderState} from "@/types/order/order";
 import {ErrorResponseProps} from "@/types/error/error";
 import {extractError} from "@/utils/utils/helper";
 
 const initialState: OrderState = {
-  orders: [],
-  serviceDates: [],
-  loading: false,
-  error: null,
+    orders: [],
+    serviceDates: [],
+    loading: false,
+    error: null,
+    currentPage: 0,
+    totalPages: 0,
+    totalElements: 0,
+    pageSize: 5,
 };
 
-// (Admin) Get all orders
+// (Admin) Get all orders with pagination
 export const getOrdersHistory = createAsyncThunk<
-    OrderResponse[],
-    void,
+    OrderPaginatedResponse,
+    { page: number; size: number },
     { rejectValue: ErrorResponseProps }
->("orders/getAllOrders", async (_, { rejectWithValue }) => {
-  try {
-    const response = await axiosInstance.get("/orders/history");
-    if (response.data.code === 2000) {
-      return response.data.result as OrderResponse[];
-    } else {
-      return rejectWithValue({
-        code: response.data.code,
-        message: response.data.message,
-      });
+>(
+    "orders/getAllOrders",
+    async ({ page, size }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/orders/history?page=${page}&size=${size}`);
+            if (response.data.code === 2000) {
+                const data = response.data.result.data;
+                return {
+                    orders: data.content,
+                    currentPage: response.data.result.currentPage,
+                    totalPages: data.totalPages,
+                    totalElements: data.totalElements,
+                    pageSize: data.size,
+                };
+            } else {
+                return rejectWithValue({
+                    code: response.data.code,
+                    message: response.data.message,
+                });
+            }
+        } catch (error) {
+            return rejectWithValue(extractError(error));
+        }
     }
-  } catch (error) {
-    return rejectWithValue(extractError(error));
-  }
-});
+);
 
-// (Collaborator) Get Orders By Collaborator
+// (Collaborator) Get Orders By Collaborator with pagination
 export const getCollaboratorOrderHistory = createAsyncThunk<
-    OrderResponse[],
-    string,
+    OrderPaginatedResponse,
+    { collaboratorId: string; page: number; size: number },
     { rejectValue: ErrorResponseProps }
->("orders/getCollaboratorOrders", async (collaboratorId, { rejectWithValue }) => {
-  try {
-    const response = await axiosInstance.get(
-        `/orders/collaborator/${collaboratorId}/history`
-    );
-    if (response.data.code === 2000) {
-      return response.data.result as OrderResponse[];
-    } else {
-      return rejectWithValue({
-        code: response.data.code,
-        message: response.data.message,
-      });
+>(
+    "orders/getCollaboratorOrders",
+    async ({ collaboratorId, page, size }, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(
+                `/orders/collaborator/${collaboratorId}/history?page=${page}&size=${size}`
+            );
+            if (response.data.code === 2000) {
+                const data = response.data.result.data;
+                return {
+                    orders: data.content,
+                    currentPage: response.data.result.currentPage,
+                    totalPages: data.totalPages,
+                    totalElements: data.totalElements,
+                    pageSize: data.size,
+                };
+            } else {
+                return rejectWithValue({
+                    code: response.data.code,
+                    message: response.data.message,
+                });
+            }
+        } catch (error) {
+            return rejectWithValue(extractError(error));
+        }
     }
-  } catch (error) {
-    return rejectWithValue(extractError(error));
-  }
-});
+);
+
 
 
 // (Collaborator) Process Orders
@@ -149,8 +174,12 @@ const orderSlice = createSlice({
           state.error = null;
         })
         .addCase(getOrdersHistory.fulfilled, (state, action) => {
-          state.orders = action.payload;
-          state.loading = false;
+            state.orders = action.payload.orders;
+            state.currentPage = action.payload.currentPage;
+            state.totalPages = action.payload.totalPages;
+            state.totalElements = action.payload.totalElements;
+            state.pageSize = action.payload.pageSize;
+            state.loading = false;
         })
         .addCase(getOrdersHistory.rejected, (state, action) => {
           state.loading = false;
@@ -162,8 +191,12 @@ const orderSlice = createSlice({
           state.error = null;
         })
         .addCase(getCollaboratorOrderHistory.fulfilled, (state, action) => {
-          state.orders = action.payload;
-          state.loading = false;
+            state.orders = action.payload.orders;
+            state.currentPage = action.payload.currentPage;
+            state.totalPages = action.payload.totalPages;
+            state.totalElements = action.payload.totalElements;
+            state.pageSize = action.payload.pageSize;
+            state.loading = false;
         })
         .addCase(getCollaboratorOrderHistory.rejected, (state, action) => {
           state.loading = false;

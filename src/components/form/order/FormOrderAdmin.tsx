@@ -13,14 +13,25 @@ import Pagination from "@/components/pagination/Pagination";
 import Chart from "@/components/chart/Chart";
 import { barChartOptions } from "@/types/component/chart/chart";
 import { formatCurrencyVND, formatPhoneNumber } from "@/utils/utils/utils";
-import { OrderDistribution, OrderItemsResponse } from "@/types/order/order";
+import { OrderItemsResponse, OrderResponse } from "@/types/order/order";
 import { ErrorResponseProps } from "@/types/error/error";
+import { extractError } from "@/utils/utils/helper";
 
 const FormOrderAdmin: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { orders, serviceDates, loading, error } = useAppSelector(
+
+  const { serviceDates, loading, error } = useAppSelector(
       (state) => state.orders
   );
+
+  // State để lưu trữ tất cả đơn hàng
+  const [allOrders, setAllOrders] = useState<OrderResponse[]>([]);
+
+  // State để lưu trữ đơn hàng sau khi đã lọc
+  const [filteredOrders, setFilteredOrders] = useState<OrderResponse[]>([]);
+
+  const [currentPageLocal, setCurrentPageLocal] = useState(1);
+  const [pageSize] = useState(5);
 
   const [notification, setNotification] = useState<{
     message: string;
@@ -28,9 +39,7 @@ const FormOrderAdmin: React.FC = () => {
   } | null>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const [selectedOrderItems, setSelectedOrderItems] = useState<
-      OrderItemsResponse[]
-  >([]);
+  const [selectedOrderItems, setSelectedOrderItems] = useState<OrderItemsResponse[]>([]);
 
   const [filters, setFilters] = useState({
     username: "",
@@ -42,49 +51,44 @@ const FormOrderAdmin: React.FC = () => {
     referralCodeUsed: "",
   });
 
+
+  // Hàm chọn hàng
   const handleRowSelect = (orderId: string) => {
     if (selectedOrder === orderId) {
       setSelectedOrder(null);
       setSelectedOrderItems([]);
     } else {
-      const order = orders.find((order) => order.id === orderId);
+      const order = allOrders.find((order) => order.id === orderId);
       setSelectedOrder(orderId);
       setSelectedOrderItems(order?.orderItems || []);
       dispatch(getServiceDates(orderId));
     }
   };
 
+  // Hàm xuất dữ liệu đơn hàng sang Excel
   const handleExportToExcel = () => {
     try {
-      const excelData = orders.flatMap((order, index) => {
+      const excelData = filteredOrders.flatMap((order, index) => {
         return order.orderItems.map((orderItem, itemIndex) => ({
-          STT: index + 1,
+          STT: (currentPageLocal - 1) * pageSize + index + 1,
           ["Mục thứ"]: itemIndex + 1,
           ["ID Đơn Hàng"]: order.id,
           ["Tên đăng nhập người mua"]: order.user?.username || "Ẩn danh",
           ["Email người mua"]: order.user?.email || "N/A",
-          ["Số điện thoại người mua"]:
-              formatPhoneNumber(order.user?.phoneNumber) || "N/A",
-         ["Tên đăng nhập cộng tác viên"]:
-              order.collaborator?.user?.username || "N/A",
-          ["Email cộng tác viên"]: order.collaborator?.user?.email || "N/A",
-          ["Số điện thoại cộng tác viên"]:
-              formatPhoneNumber(order.collaborator?.user?.phoneNumber) || "N/A",
-          ["Tổng đơn hàng cộng tác viên đã xử lý"]:
-              order.collaborator?.totalOrdersHandled || "0",
-          ["Tổng tiền"]: order.totalAmount,
+          ["Số điện thoại người mua"]: formatPhoneNumber(order.user?.phoneNumber) || "N/A",
+          ["Tên đăng nhập CTV"]: order.collaborator?.user?.username || "N/A",
+          ["Email CTV"]: order.collaborator?.user?.email || "N/A",
+          ["Số điện thoại CTV"]: formatPhoneNumber(order.collaborator?.user?.phoneNumber) || "N/A",
+          ["Tổng đơn CTV đã xử lý"]: order.collaborator?.totalOrdersHandled || "0",
+          ["Tổng tiền"]: formatCurrencyVND(order.totalAmount),
           ["Ngày đặt hàng"]: new Date(order.orderDate).toLocaleDateString(),
-          ["Ngày bắt đầu"]: order.startDate
-              ? new Date(order.startDate).toLocaleDateString()
-              : "N/A",
-          ["Ngày kết thúc"]: order.endDate
-              ? new Date(order.endDate).toLocaleDateString()
-              : "N/A",
+          ["Ngày bắt đầu"]: order.startDate ? new Date(order.startDate).toLocaleDateString() : "N/A",
+          ["Ngày kết thúc"]: order.endDate ? new Date(order.endDate).toLocaleDateString() : "N/A",
           ["Mã giới thiệu đã sử dụng"]: order.referralCodeUsed || "N/A",
           ["Tên sản phẩm"]: orderItem.product.productName,
           ["Mã sản phẩm"]: orderItem.product.productCode,
           ["Số lượng"]: orderItem.quantity,
-          ["Giá"]: orderItem.price,
+          ["Giá"]: formatCurrencyVND(orderItem.price),
           ["Ngày hết hạn"]: new Date(orderItem.expiryDate).toLocaleDateString(),
         }));
       });
@@ -108,103 +112,57 @@ const FormOrderAdmin: React.FC = () => {
     }
   };
 
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
-  const totalProducts = orders.reduce(
-      (sum, order) =>
-          sum +
-          order.orderItems.reduce((itemSum, item) => itemSum + item.quantity, 0),
-      0
-  );
-  const totalCollaborators = new Set(
-      orders.map((order) => order.collaborator?.user?.username).filter(Boolean)
-  ).size;
-
-  const orderStatusDistribution: OrderDistribution = orders.reduce(
-      (acc, order) => {
-        acc[order.statusName] = (acc[order.statusName] || 0) + 1;
-        return acc;
-      },
-      {} as OrderDistribution
-  );
-
-  const orderStatusChartData = {
-    labels: Object.keys(orderStatusDistribution),
-    datasets: [
-      {
-        data: Object.values(orderStatusDistribution),
-        backgroundColor: ["#4caf50", "#ff9800", "#f44336", "#2196f3"],
-        hoverBackgroundColor: ["#66bb6a", "#ffb74d", "#e57373", "#64b5f6"],
-      },
-    ],
-  };
-
-  const productQuantityDistribution: OrderDistribution = orders
-      .flatMap((order) => order.orderItems)
-      .reduce((acc, item) => {
-        acc[item.product.productName] =
-            (acc[item.product.productName] || 0) + item.quantity;
-        return acc;
-      }, {} as OrderDistribution);
-
-  const topProducts = Object.entries(productQuantityDistribution)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5);
-
-  const topProductsChartData = {
-    labels: topProducts.map(([name]) => name),
-    datasets: [
-      {
-        label: "Số lượng bán ra",
-        data: topProducts.map(([, quantity]) => quantity),
-        backgroundColor: "#2196f3",
-        hoverBackgroundColor: "#64b5f6",
-      },
-    ],
-  };
-
-  const collaboratorRevenue: OrderDistribution = orders.reduce((acc, order) => {
-    const collaboratorName = order.collaborator?.user?.username || "Ẩn danh";
-    acc[collaboratorName] = (acc[collaboratorName] || 0) + order.totalAmount;
-    return acc;
-  }, {} as OrderDistribution);
-
-  const topCollaborators = Object.entries(collaboratorRevenue)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5);
-
-  const topCollaboratorsChartData = {
-    labels: topCollaborators.map(([name]) => name),
-    datasets: [
-      {
-        label: "Doanh thu (VND)",
-        data: topCollaborators.map(([, revenue]) => revenue),
-        backgroundColor: "#4caf50",
-        hoverBackgroundColor: "#66bb6a",
-      },
-    ],
-  };
-
+  // Hàm xuất dữ liệu thống kê sang Excel
   const handleExportStatisticsToExcel = () => {
     try {
       const statisticalData = [
         {
           ["ChỉSố"]: "Tổng đơn hàng",
-          ["GiáTrị"]: totalOrders,
+          ["GiáTrị"]: filteredOrders.length,
         },
         {
           ["ChỉSố"]: "Tổng số tiền (VND)",
-          ["GiáTrị"]: totalRevenue.toLocaleString(),
+          ["GiáTrị"]: formatCurrencyVND(
+              filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+          ),
         },
         {
           ["ChỉSố"]: "Tổng sản phẩm đã bán",
-          ["GiáTrị"]: totalProducts,
+          ["GiáTrị"]: filteredOrders.reduce(
+              (sum, order) =>
+                  sum +
+                  order.orderItems.reduce((itemSum, item) => itemSum + item.quantity, 0),
+              0
+          ),
         },
         {
           ["ChỉSố"]: "Tổng số cộng tác viên",
-          ["GiáTrị"]: totalCollaborators,
+          ["GiáTrị"]: new Set(
+              filteredOrders.map((order) => order.collaborator?.user?.username).filter(Boolean)
+          ).size,
         },
       ];
+
+      const topProducts = Object.entries(
+          filteredOrders
+              .flatMap((order) => order.orderItems)
+              .reduce((acc, item) => {
+                acc[item.product.productName] = (acc[item.product.productName] || 0) + item.quantity;
+                return acc;
+              }, {} as Record<string, number>)
+      )
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5);
+
+      const topCollaborators = Object.entries(
+          filteredOrders.reduce((acc, order) => {
+            const collaboratorName = order.collaborator?.user?.username || "Ẩn danh";
+            acc[collaboratorName] = (acc[collaboratorName] || 0) + order.totalAmount;
+            return acc;
+          }, {} as Record<string, number>)
+      )
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5);
 
       const topProductsData = topProducts.map(([name, quantity]) => ({
         ["Tên sản phẩm"]: name,
@@ -213,7 +171,7 @@ const FormOrderAdmin: React.FC = () => {
 
       const topCollaboratorsData = topCollaborators.map(([name, revenue]) => ({
         ["Tên cộng tác viên"]: name,
-        ["Tổng doanh thu (VND)"]: revenue,
+        ["Tổng doanh thu (VND)"]: formatCurrencyVND(revenue),
       }));
 
       const statisticalSheet = XLSX.utils.json_to_sheet(statisticalData);
@@ -223,11 +181,7 @@ const FormOrderAdmin: React.FC = () => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, statisticalSheet, "ThongKeTongQuan");
       XLSX.utils.book_append_sheet(workbook, topProductsSheet, "TopSanPham");
-      XLSX.utils.book_append_sheet(
-          workbook,
-          topCollaboratorsSheet,
-          "TopCongTacVien"
-      );
+      XLSX.utils.book_append_sheet(workbook, topCollaboratorsSheet, "TopCongTacVien");
 
       XLSX.writeFile(workbook, "DuLieuThongKe.xlsx");
 
@@ -243,76 +197,128 @@ const FormOrderAdmin: React.FC = () => {
     }
   };
 
+  // Fetch tất cả đơn hàng từ backend
   useEffect(() => {
-    dispatch(getOrdersHistory());
+    const fetchAllOrders = async () => {
+      try {
+        let page = 0;
+        const size = 100; // Số lượng đơn hàng mỗi trang, điều chỉnh theo nhu cầu
+        let allFetchedOrders: OrderResponse[] = [];
+        let fetchedAll = false;
+
+        while (!fetchedAll) {
+          const resultAction = await dispatch(getOrdersHistory({ page, size }));
+          if (getOrdersHistory.fulfilled.match(resultAction)) {
+            const fetchedOrders = resultAction.payload.orders;
+            allFetchedOrders = [...allFetchedOrders, ...fetchedOrders];
+            if (page >= resultAction.payload.totalPages - 1) {
+              fetchedAll = true;
+            } else {
+              page += 1;
+            }
+          } else {
+            // Nếu có lỗi, dừng việc fetch
+            fetchedAll = true;
+            setNotification({
+              message: `Lấy đơn hàng thất bại: ${resultAction.payload?.message || "Unknown Error"}`,
+              type: "error",
+            });
+          }
+        }
+
+        setAllOrders(allFetchedOrders);
+        setFilteredOrders(allFetchedOrders);
+      } catch (error: unknown) {
+        const err = extractError(error);
+        setNotification({
+          message: `Lấy đơn hàng thất bại: ${err.code}: ${err.message}`,
+          type: "error",
+        });
+      }
+    };
+
+    fetchAllOrders();
   }, [dispatch]);
 
-  const {
-    username,
-    collaboratorUsername,
-    orderStatus,
-    orderDate,
-    startDate,
-    endDate,
-    referralCodeUsed,
-  } = filters;
+  // Áp dụng bộ lọc khi filters hoặc allOrders thay đổi
+  useEffect(() => {
+    const applyFilters = () => {
+      const filtered = allOrders.filter((order) => {
+        const matchUsername = filters.username
+            ? (order.user?.username?.toLowerCase().includes(filters.username.toLowerCase()) ||
+                (order.anonymousUser?.username &&
+                    order.anonymousUser.username.toLowerCase().includes(filters.username.toLowerCase())))
+            : true;
+        const matchCollaborator = filters.collaboratorUsername
+            ? order.collaborator?.user?.username?.toLowerCase().includes(filters.collaboratorUsername.toLowerCase())
+            : true;
+        const matchStatus = filters.orderStatus ? order.statusName === filters.orderStatus : true;
+        const matchOrderDate = filters.orderDate
+            ? new Date(order.orderDate).toLocaleDateString() === filters.orderDate
+            : true;
+        const matchStartDate = filters.startDate
+            ? order.startDate
+                ? new Date(order.startDate).toLocaleDateString() === filters.startDate
+                : false
+            : true;
+        const matchEndDate = filters.endDate
+            ? order.endDate
+                ? new Date(order.endDate).toLocaleDateString() === filters.endDate
+                : false
+            : true;
+        const matchReferralCode = filters.referralCodeUsed
+            ? order.referralCodeUsed?.toLowerCase().includes(filters.referralCodeUsed.toLowerCase())
+            : true;
 
-  const filteredOrders = orders.filter((order) => {
-    const matchUsername = username
-        ? ((typeof order.user?.username === "string" &&
-                order.user.username.includes(username)) ||
-            (typeof order.anonymousUser?.username === "string" &&
-                order.anonymousUser.username))
-        : true;
-    const matchCollaborator = collaboratorUsername
-        ? order.collaborator?.user?.username?.includes(collaboratorUsername)
-        : true;
-    const matchStatus = orderStatus ? order.statusName === orderStatus : true;
-    const matchOrderDate = orderDate
-        ? new Date(order.orderDate).toLocaleDateString() === orderDate
-        : true;
-    const matchStartDate = startDate
-        ? order.startDate
-            ? new Date(order.startDate).toLocaleDateString() === startDate
-            : false
-        : true;
-    const matchEndDate = endDate
-        ? order.endDate
-            ? new Date(order.endDate).toLocaleDateString() === endDate
-            : false
-        : true;
-    const matchReferralCode = referralCodeUsed
-        ? order.referralCodeUsed?.includes(referralCodeUsed)
-        : true;
+        return (
+            matchUsername &&
+            matchCollaborator &&
+            matchStatus &&
+            matchOrderDate &&
+            matchStartDate &&
+            matchEndDate &&
+            matchReferralCode
+        );
+      });
 
-    return (
-        matchUsername &&
-        matchCollaborator &&
-        matchStatus &&
-        matchOrderDate &&
-        matchStartDate &&
-        matchEndDate &&
-        matchReferralCode
-    );
-  });
+      setFilteredOrders(filtered);
+    };
 
-  const totalFilteredPages = Math.ceil(filteredOrders.length / 5);
-  const [currentPage, setCurrentPage] = useState(1);
+    applyFilters();
+  }, [filters, allOrders]);
+
+  // Phân trang phía client
+  const totalFilteredPages = Math.ceil(filteredOrders.length / pageSize);
   const paginatedOrders = filteredOrders.slice(
-      (currentPage - 1) * 5,
-      currentPage * 5
+      (currentPageLocal - 1) * pageSize,
+      currentPageLocal * pageSize
   );
 
-  const handleFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  // Hàm xử lý thay đổi bộ lọc
+  const handleFilterChange = (
+      event: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
+  ) => {
+    const { name, value } = event.target;
     setFilters({
       ...filters,
-      [event.target.name]: event.target.value,
+      [name]: value,
     });
+    // Không reset lại trang hiện tại
+    // Focus vẫn giữ nguyên trên input
   };
 
-  if (loading) return <p>Đang tải đơn hàng...</p>;
+  // Hàm xử lý thay đổi trang
+  const handlePageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= totalFilteredPages) {
+      setCurrentPageLocal(newPage);
+      setSelectedOrder(null);
+      setSelectedOrderItems([]);
+    }
+  };
 
-  if (error) {
+  if (loading && allOrders.length === 0) return <p>Đang tải đơn hàng...</p>;
+
+  if (error && allOrders.length === 0) {
     const err = error as ErrorResponseProps;
     return (
         <p>
@@ -323,6 +329,7 @@ const FormOrderAdmin: React.FC = () => {
 
   return (
       <div className="p-4">
+        {/* Notification */}
         {notification && (
             <div className="fixed top-4 right-4 z-50 transition-opacity">
               <Notification
@@ -334,6 +341,7 @@ const FormOrderAdmin: React.FC = () => {
         )}
 
         <div className="p-4 mx-auto ">
+          {/* Header */}
           <div className="flex justify-between mb-4">
             <h2 className="text-2xl font-semibold text-indigo-700">
               Quản lý đơn hàng
@@ -359,47 +367,33 @@ const FormOrderAdmin: React.FC = () => {
           </div>
 
           {/* Filters Section */}
-          <div className="flex space-x-4 mb-4 justify-end items-center">
+          <div className="flex flex-wrap gap-4 mb-4 justify-end items-center">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Lọc theo người mua:
               </label>
-              <select
+              <input
+                  type="text"
                   name="username"
-                  className="border p-2 rounded"
+                  className="border p-2 rounded w-full"
+                  placeholder="Nhập tên người mua"
                   onChange={handleFilterChange}
-                  value={username}
-              >
-                <option value="">Chọn tên người mua</option>
-                {[...new Set(orders.map((o) => o.user?.username || o.anonymousUser?.username))]
-                    .filter(Boolean)
-                    .map((u, i) => (
-                        <option key={i} value={String(u || "")}>
-                          {String(u || "Ẩn danh")}
-                        </option>
-                    ))}
-              </select>
+                  value={filters.username}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Lọc theo cộng tác viên:
               </label>
-              <select
+              <input
+                  type="text"
                   name="collaboratorUsername"
-                  className="border p-2 rounded"
+                  className="border p-2 rounded w-full"
+                  placeholder="Nhập tên CTV"
                   onChange={handleFilterChange}
-                  value={collaboratorUsername}
-              >
-                <option value="">Chọn tên cộng tác viên</option>
-                {[...new Set(orders.map((o) => o.collaborator?.user?.username))]
-                    .filter(Boolean)
-                    .map((c, i) => (
-                        <option key={i} value={c || ""}>
-                          {c}
-                        </option>
-                    ))}
-              </select>
+                  value={filters.collaboratorUsername}
+              />
             </div>
 
             <div>
@@ -408,9 +402,9 @@ const FormOrderAdmin: React.FC = () => {
               </label>
               <select
                   name="orderStatus"
-                  className="border p-2 rounded"
+                  className="border p-2 rounded w-full"
                   onChange={handleFilterChange}
-                  value={orderStatus}
+                  value={filters.orderStatus}
               >
                 <option value="">Chọn trạng thái đơn hàng</option>
                 {["Open", "In Progress", "Complete", "Cancel"].map((status, i) => (
@@ -425,80 +419,53 @@ const FormOrderAdmin: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700">
                 Lọc theo ngày order:
               </label>
-              <select
+              <input
+                  type="date"
                   name="orderDate"
-                  className="border p-2 rounded"
+                  className="border p-2 rounded w-full"
                   onChange={handleFilterChange}
-                  value={orderDate}
-              >
-                <option value="">Chọn ngày đặt hàng</option>
-                {[...new Set(orders.map((o) => new Date(o.orderDate).toLocaleDateString()))]
-                    .map((date, i) => (
-                        <option key={i} value={date}>
-                          {date}
-                        </option>
-                    ))}
-              </select>
+                  value={filters.orderDate}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Lọc theo ngày bắt đầu:
               </label>
-              <select
+              <input
+                  type="date"
                   name="startDate"
-                  className="border p-2 rounded"
+                  className="border p-2 rounded w-full"
                   onChange={handleFilterChange}
-                  value={startDate}
-              >
-                <option value="">Chọn ngày bắt đầu</option>
-                {[...new Set(orders.map((o) => o.startDate ? new Date(o.startDate).toLocaleDateString() : ""))].filter(Boolean)
-                    .map((date, i) => (
-                        <option key={i} value={date}>
-                          {date}
-                        </option>
-                    ))}
-              </select>
+                  value={filters.startDate}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Lọc theo ngày kết thúc:
               </label>
-              <select
+              <input
+                  type="date"
                   name="endDate"
-                  className="border p-2 rounded"
+                  className="border p-2 rounded w-full"
                   onChange={handleFilterChange}
-                  value={endDate}
-              >
-                <option value="">Chọn ngày kết thúc</option>
-                {[...new Set(orders.map((o) => o.endDate ? new Date(o.endDate).toLocaleDateString() : ""))].filter(Boolean)
-                    .map((date, i) => (
-                        <option key={i} value={date}>
-                          {date}
-                        </option>
-                    ))}
-              </select>
+                  value={filters.endDate}
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Lọc theo mã giới thiệu:
               </label>
-              <select
+              <input
+                  type="text"
                   name="referralCodeUsed"
-                  className="border p-2 rounded"
+                  className="border p-2 rounded w-full"
+                  placeholder="Nhập mã giới thiệu"
                   onChange={handleFilterChange}
-                  value={referralCodeUsed}
-              >
-                <option value="">Chọn mã giới thiệu</option>
-                {[...new Set(orders.map((o) => o.referralCodeUsed).filter(Boolean))]
-                    .map((code, i) => (
-                        <option key={i} value={code || ""}>
-                          {code}
-                        </option>
-                    ))}
-              </select>
+                  value={filters.referralCodeUsed}
+              />
             </div>
           </div>
         </div>
@@ -511,19 +478,19 @@ const FormOrderAdmin: React.FC = () => {
                   <thead>
                   <tr className="bg-gray-200 text-gray-700">
                     <th className="px-4 py-2 text-center">STT</th>
-                    <th className="px-4 py-2 text-center">Tên đăng nhập người mua</th>
-                    <th className="px-4 py-2 text-center">Email người mua</th>
-                    <th className="px-4 py-2 text-center">Số điện thoại người mua</th>
-                    <th className="px-4 py-2 text-center">Tên đăng nhập cộng tác viên</th>
-                    <th className="px-4 py-2 text-center">Email cộng tác viên</th>
-                    <th className="px-4 py-2 text-center">Số điện thoại cộng tác viên</th>
-                    <th className="px-4 py-2 text-center">Tổng đơn cộng tác viên đã xử lý</th>
-                    <th className="px-4 py-2 text-center">Trạng thái đơn hàng</th>
-                    <th className="px-4 py-2 text-center">Tổng tiền</th>
-                    <th className="px-4 py-2 text-center">Ngày đặt hàng</th>
-                    <th className="px-4 py-2 text-center">Ngày bắt đầu</th>
-                    <th className="px-4 py-2 text-center">Ngày kết thúc</th>
-                    <th className="px-4 py-2 text-center">Mã giới thiệu đã sử dụng</th>
+                    <th className="px-4 py-2 text-center">Tên ĐN Người Mua</th>
+                    <th className="px-4 py-2 text-center">Email Người Mua</th>
+                    <th className="px-4 py-2 text-center">SĐT Người Mua</th>
+                    <th className="px-4 py-2 text-center">Tên ĐN CTV</th>
+                    <th className="px-4 py-2 text-center">Email CTV</th>
+                    <th className="px-4 py-2 text-center">SĐT CTV</th>
+                    <th className="px-4 py-2 text-center">Tổng Đơn CTV Đã Xử Lý</th>
+                    <th className="px-4 py-2 text-center">Trạng Thái Đơn</th>
+                    <th className="px-4 py-2 text-center">Tổng Tiền</th>
+                    <th className="px-4 py-2 text-center">Ngày Đặt Hàng</th>
+                    <th className="px-4 py-2 text-center">Ngày Bắt Đầu</th>
+                    <th className="px-4 py-2 text-center">Ngày Kết Thúc</th>
+                    <th className="px-4 py-2 text-center">Mã Giới Thiệu</th>
                   </tr>
                   </thead>
                   <tbody>
@@ -531,33 +498,21 @@ const FormOrderAdmin: React.FC = () => {
                       <tr
                           key={`${order.id}-${index}`}
                           className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${
-                              selectedOrder === order.id
-                                  ? "bg-indigo-100"
-                                  : "hover:bg-gray-50"
+                              selectedOrder === order.id ? "bg-indigo-100" : "hover:bg-gray-50"
                           }`}
                           onClick={() => handleRowSelect(order.id)}
                       >
                         <td className="border px-4 py-2 text-center">
-                          {(currentPage - 1) * 5 + index + 1}
+                          {(currentPageLocal - 1) * pageSize + index + 1}
                         </td>
                         <td className="border px-4 py-2 text-center">
-                          {String(
-                              order.user?.username ||
-                              order.anonymousUser?.username ||
-                              "Ẩn danh"
-                          )}
+                          {order.user?.username || order.anonymousUser?.username || "Ẩn danh"}
                         </td>
                         <td className="border px-4 py-2 text-center">
-                          {String(order.user?.email || order.anonymousUser?.email || "N/A")}
+                          {order.user?.email || order.anonymousUser?.email || "N/A"}
                         </td>
                         <td className="border px-4 py-2 text-center">
-                          {formatPhoneNumber(
-                              String(
-                                  order.user?.phoneNumber ||
-                                  order.anonymousUser?.phoneNumber ||
-                                  ""
-                              )
-                          ) || "N/A"}
+                          {formatPhoneNumber(order.user?.phoneNumber || order.anonymousUser?.phoneNumber) || "N/A"}
                         </td>
                         <td className="border px-4 py-2 text-center">
                           {order.collaborator?.user?.username || "N/A"}
@@ -566,7 +521,7 @@ const FormOrderAdmin: React.FC = () => {
                           {order.collaborator?.user?.email || "N/A"}
                         </td>
                         <td className="border px-4 py-2 text-center">
-                          {formatPhoneNumber(order.collaborator?.user?.phoneNumber || "") || "N/A"}
+                          {formatPhoneNumber(order.collaborator?.user?.phoneNumber) || "N/A"}
                         </td>
                         <td className="border px-4 py-2 text-center">
                           {order.collaborator?.totalOrdersHandled || "0"}
@@ -625,7 +580,7 @@ const FormOrderAdmin: React.FC = () => {
                     <th className="px-4 py-2 text-center">Tên cộng tác viên</th>
                     <th className="px-4 py-2 text-center">Email cộng tác viên</th>
                     <th className="px-4 py-2 text-center">Số điện thoại cộng tác viên</th>
-                    <th className="px-4 py-2 text-center">Tổng số đơn hàng cộng tác viên đã xử lý</th>
+                    <th className="px-4 py-2 text-center">Tổng số đơn CTV đã xử lý</th>
                     <th className="px-4 py-2 text-center">Trạng thái đơn hàng</th>
                     <th className="px-4 py-2 text-center">Tổng tiền</th>
                     <th className="px-4 py-2 text-center">Ngày đặt hàng</th>
@@ -646,25 +601,25 @@ const FormOrderAdmin: React.FC = () => {
             </>
         )}
 
+        {/* Phần hiển thị thông tin phân trang */}
         <div className="flex justify-between items-center mt-4">
           <p className="text-sm text-gray-600">
-            Đang hiển thị từ {(currentPage - 1) * 5 + 1} đến{" "}
-            {Math.min(currentPage * 5, filteredOrders.length)} trong tổng số{" "}
-            {filteredOrders.length} mục
+            Đang hiển thị từ{" "}
+            {filteredOrders.length > 0
+                ? (currentPageLocal - 1) * pageSize + 1
+                : 0}{" "}
+            đến{" "}
+            {Math.min(currentPageLocal * pageSize, filteredOrders.length)}{" "}
+            trong tổng số {filteredOrders.length} mục
           </p>
           <Pagination
-              currentPage={currentPage}
+              currentPage={currentPageLocal}
               totalPages={totalFilteredPages}
-              onPageChange={(newPage) => {
-                if (newPage > 0 && newPage <= totalFilteredPages) {
-                  setCurrentPage(newPage);
-                  setSelectedOrder(null);
-                  setSelectedOrderItems([]);
-                }
-              }}
+              onPageChange={handlePageChange}
           />
         </div>
 
+        {/* Phần hiển thị các mục đơn hàng khi chọn */}
         {selectedOrder && selectedOrderItems.length > 0 && (
             <>
               <h3 className="text-xl font-semibold mt-4 mb-2">Các mục đơn hàng</h3>
@@ -693,7 +648,7 @@ const FormOrderAdmin: React.FC = () => {
                           {orderItem.quantity}
                         </td>
                         <td className="border px-4 py-2 text-center">
-                          {orderItem.price}
+                          {formatCurrencyVND(orderItem.price)}
                         </td>
                       </tr>
                   ))}
@@ -703,6 +658,7 @@ const FormOrderAdmin: React.FC = () => {
             </>
         )}
 
+        {/* Phần hiển thị ngày dịch vụ khi chọn đơn hàng */}
         {selectedOrder && serviceDates && serviceDates.length > 0 && (
             <>
               <h3 className="text-xl font-semibold mt-4 mb-2">Ngày dịch vụ</h3>
@@ -731,41 +687,113 @@ const FormOrderAdmin: React.FC = () => {
             </>
         )}
 
+        {/* Phần thống kê tổng quan */}
         <div className="col-span-full bg-white p-6 rounded-lg shadow-lg mb-6 mt-6">
           <h3 className="text-lg font-semibold text-center mb-4">
             Thống kê tổng quan
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 text-center gap-4">
             <div>
-              <p className="text-xl font-bold">{totalOrders}</p>
+              <p className="text-xl font-bold">{filteredOrders.length}</p>
               <p>Tổng đơn hàng</p>
             </div>
             <div>
-              <p className="text-xl font-bold">{totalRevenue.toLocaleString()}</p>
+              <p className="text-xl font-bold">
+                {formatCurrencyVND(
+                    filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0)
+                )}
+              </p>
               <p>Tổng số tiền (VND)</p>
             </div>
             <div>
-              <p className="text-xl font-bold">{totalProducts}</p>
+              <p className="text-xl font-bold">
+                {filteredOrders.reduce(
+                    (sum, order) =>
+                        sum +
+                        order.orderItems.reduce((itemSum, item) => itemSum + item.quantity, 0),
+                    0
+                )}
+              </p>
               <p>Tổng sản phẩm đã bán</p>
             </div>
             <div>
-              <p className="text-xl font-bold">{totalCollaborators}</p>
+              <p className="text-xl font-bold">
+                {new Set(
+                    filteredOrders
+                        .map((order) => order.collaborator?.user?.username)
+                        .filter(Boolean)
+                ).size}
+              </p>
               <p>Tổng số cộng tác viên</p>
             </div>
           </div>
         </div>
 
+        {/* Phần hiển thị biểu đồ */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-8 mx-auto max-w-8xl px-4">
+          {/* Biểu đồ phân phối trạng thái đơn hàng */}
           <Chart
               type="pie"
-              data={orderStatusChartData}
+              data={{
+                labels: Object.keys(
+                    filteredOrders.reduce((acc, order) => {
+                      acc[order.statusName] = (acc[order.statusName] || 0) + 1;
+                      return acc;
+                    }, {} as Record<string, number>)
+                ),
+                datasets: [
+                  {
+                    data: Object.values(
+                        filteredOrders.reduce((acc, order) => {
+                          acc[order.statusName] = (acc[order.statusName] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>)
+                    ),
+                    backgroundColor: ["#4caf50", "#ff9800", "#f44336", "#2196f3"],
+                    hoverBackgroundColor: ["#66bb6a", "#ffb74d", "#e57373", "#64b5f6"],
+                  },
+                ],
+              }}
               options={{ maintainAspectRatio: false }}
               title="Phân phối trạng thái đơn hàng"
           />
 
+          {/* Biểu đồ Top 5 sản phẩm theo số lượng */}
           <Chart
               type="bar"
-              data={topProductsChartData}
+              data={{
+                labels: Object.entries(
+                    filteredOrders
+                        .flatMap((order) => order.orderItems)
+                        .reduce((acc, item) => {
+                          acc[item.product.productName] =
+                              (acc[item.product.productName] || 0) + item.quantity;
+                          return acc;
+                        }, {} as Record<string, number>)
+                )
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5)
+                    .map(([name]) => name),
+                datasets: [
+                  {
+                    label: "Số lượng bán ra",
+                    data: Object.entries(
+                        filteredOrders
+                            .flatMap((order) => order.orderItems)
+                            .reduce((acc, item) => {
+                              acc[item.product.productName] =
+                                  (acc[item.product.productName] || 0) + item.quantity;
+                              return acc;
+                            }, {} as Record<string, number>)
+                    )
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(0, 5)
+                        .map(([, quantity]) => quantity),
+                    backgroundColor: "#2196f3",
+                    hoverBackgroundColor: "#64b5f6",
+                  },
+                ],
+              }}
               options={{
                 ...barChartOptions,
                 indexAxis: "y",
@@ -773,9 +801,38 @@ const FormOrderAdmin: React.FC = () => {
               title="Top 5 sản phẩm theo số lượng"
           />
 
+          {/* Biểu đồ Top 5 cộng tác viên theo doanh thu */}
           <Chart
               type="bar"
-              data={topCollaboratorsChartData}
+              data={{
+                labels: Object.entries(
+                    filteredOrders.reduce((acc, order) => {
+                      const collaboratorName = order.collaborator?.user?.username || "Ẩn danh";
+                      acc[collaboratorName] = (acc[collaboratorName] || 0) + order.totalAmount;
+                      return acc;
+                    }, {} as Record<string, number>)
+                )
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5)
+                    .map(([name]) => name),
+                datasets: [
+                  {
+                    label: "Doanh thu (VND)",
+                    data: Object.entries(
+                        filteredOrders.reduce((acc, order) => {
+                          const collaboratorName = order.collaborator?.user?.username || "Ẩn danh";
+                          acc[collaboratorName] = (acc[collaboratorName] || 0) + order.totalAmount;
+                          return acc;
+                        }, {} as Record<string, number>)
+                    )
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(0, 5)
+                        .map(([, revenue]) => revenue),
+                    backgroundColor: "#4caf50",
+                    hoverBackgroundColor: "#66bb6a",
+                  },
+                ],
+              }}
               options={barChartOptions}
               title="Top 5 cộng tác viên theo doanh thu"
           />
