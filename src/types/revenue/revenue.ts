@@ -1,4 +1,4 @@
-import {ErrorResponseProps} from "@/types/error/error";
+import { ErrorResponseProps } from "@/types/error/error";
 
 export interface RevenueState {
   revenueDetails: Array<{
@@ -6,6 +6,7 @@ export interface RevenueState {
     totalRevenue: number | null;
     totalCommission: number | null;
     totalRevenueWithCommission: number | null;
+    commissionRate: number | null;
   }>;
   loading: boolean;
   error: ErrorResponseProps | null;

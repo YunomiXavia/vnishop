@@ -10,7 +10,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
     <Provider store={store}>
       <div className="flex h-screen">
         <SidebarUser />
-        <main className="flex-1 p-8 bg-gray-100">{children}</main>
+        <main className="ml-64 flex-1 p-6 overflow-auto">{children}</main>
       </div>
     </Provider>
   );

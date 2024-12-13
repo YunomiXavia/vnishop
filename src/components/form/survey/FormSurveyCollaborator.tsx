@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import React, { useEffect, useRef, useState } from "react";
 import {
   completeSurvey,
-  getSurveys,
+  getSurveysForCollaborator,
   handleSurvey,
   handleSurveys,
   responseSurvey,
@@ -24,11 +24,20 @@ import Pagination from "@/components/pagination/Pagination";
 import Chart from "@/components/chart/Chart";
 import { barChartOptions } from "@/types/component/chart/chart";
 import { ErrorResponseProps } from "@/types/error/error";
-import {extractError} from "@/utils/utils/helper";
+import { extractError } from "@/utils/utils/helper";
+import Cookies from "js-cookie"; // Import js-cookie để truy xuất cookies
 
-const FormSurveyCollaborator = () => {
+const FormSurveyCollaborator: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { surveys, loading, error } = useAppSelector((state) => state.surveys);
+  const {
+    surveys,
+    loading,
+    error,
+    currentPage,
+    totalPages,
+    totalElements,
+    pageSize,
+  } = useAppSelector((state) => state.surveys);
 
   const [showForm, setShowForm] = useState(false);
   const [selectedSurveys, setSelectedSurveys] = useState<string[]>([]);
@@ -37,72 +46,17 @@ const FormSurveyCollaborator = () => {
     type: "success" | "error" | "info";
   } | null>(null);
 
-  const [filters, setFilters] = useState({
-    username: "",
-    collaboratorUsername: "",
-    status: "",
-    totalRevenue: "",
-    createAt: "",
-    responseAt: "",
-  });
-
-  const [currentSurveyId, setCurrentSurveyId] = useState<string | null>(null);
-
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
-
-  const filteredSurveys = surveys.filter((survey) => {
-    const matchesUsername =
-        filters.username === "" || survey.user.username === filters.username;
-
-    const matchesCollaborator =
-        filters.collaboratorUsername === "" ||
-        survey.collaborator?.username === filters.collaboratorUsername;
-
-    const matchesStatus =
-        filters.status === "" || survey.status.statusName === filters.status;
-
-    const matchesCreateAt =
-        filters.createAt === "" ||
-        new Date(survey.createdAt).toLocaleDateString() === filters.createAt;
-
-    const matchesResponseAt =
-        filters.responseAt === "" ||
-        (survey.responseAt &&
-            new Date(survey.responseAt).toLocaleDateString() === filters.responseAt);
-
-    return (
-        matchesUsername &&
-        matchesCollaborator &&
-        matchesStatus &&
-        matchesCreateAt &&
-        matchesResponseAt
-    );
-  });
-
-  const rowsPerPage = 5;
-  const totalPages = Math.ceil(filteredSurveys.length / rowsPerPage);
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
-
-  const paginatedSurveys = filteredSurveys.slice(
-      (currentPage - 1) * rowsPerPage,
-      currentPage * rowsPerPage
-  );
-
   const [formData, setFormData] = useState({
     response: "",
   });
 
   const formRef = useRef<HTMLFormElement>(null);
+  const [currentSurveyId, setCurrentSurveyId] = useState<string | null>(null);
 
+  // Lấy username hiện tại từ cookies
+  const currentUsername = Cookies.get("username") || "";
+
+  // Fetch Collaborator ID
   const fetchCollaboratorId = async () => {
     try {
       return await dispatch(getCollaboratorByUserId()).unwrap();
@@ -115,6 +69,7 @@ const FormSurveyCollaborator = () => {
     }
   };
 
+  // Handle Input Change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
@@ -126,9 +81,9 @@ const FormSurveyCollaborator = () => {
   // Chọn dòng
   const handleRowSelect = (surveyId: string) => {
     setSelectedSurveys((prevSurveys) =>
-        prevSurveys.includes(surveyId)
-            ? prevSurveys.filter((id) => id !== surveyId)
-            : [...prevSurveys, surveyId]
+      prevSurveys.includes(surveyId)
+        ? prevSurveys.filter((id) => id !== surveyId)
+        : [...prevSurveys, surveyId]
     );
   };
 
@@ -136,19 +91,22 @@ const FormSurveyCollaborator = () => {
   const handleExportToExcel = () => {
     try {
       const excelData = surveys.map((survey, index) => ({
-        STT: index + 1,
+        STT: (currentPage - 1) * pageSize + index + 1,
         ["ID Câu hỏi"]: survey.id,
         ["ID Người mua"]: survey.user.id,
         ["Tên người mua"]: survey.user.username,
         ["ID Cộng tác viên"]: survey.collaborator?.id || "N/A",
         ["Tên cộng tác viên"]: survey.collaborator?.username || "N/A",
-        ["Tổng số câu hỏi đã xử lý"]: survey.collaborator?.totalSurveyHandled || 0,
+        ["Tổng số câu hỏi cộng tác viên đã xử lý"]:
+          survey.collaborator?.totalSurveyHandled || 0,
         ["ID Trạng thái"]: survey.status.id,
         ["Trạng thái"]: survey.status.statusName,
         ["Câu hỏi"]: survey.question,
-        ["Phản hồi"]: survey.response,
-        ["Tạo lúc"]: survey.createdAt,
-        ["Phản hồi lúc"]: survey.responseAt,
+        ["Phản hồi"]: survey.response || "N/A",
+        ["Tạo lúc"]: new Date(survey.createdAt).toLocaleString(),
+        ["Phản hồi lúc"]: survey.responseAt
+          ? new Date(survey.responseAt).toLocaleString()
+          : "N/A",
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -164,7 +122,7 @@ const FormSurveyCollaborator = () => {
       });
     } catch (error) {
       setNotification({
-        message: `Xuất dữ liệu thất bại: ${error}` + error,
+        message: `Xuất dữ liệu thất bại: ${error}`,
         type: "error",
       });
     }
@@ -172,14 +130,26 @@ const FormSurveyCollaborator = () => {
 
   const handleExportStatisticsToExcel = () => {
     try {
+      // Chuẩn bị dữ liệu thống kê
+      const surveyStatusDistribution = surveys.reduce((acc, survey) => {
+        acc[survey.status.statusName] =
+          (acc[survey.status.statusName] || 0) + 1;
+        return acc;
+      }, {} as { [key: string]: number });
+
+      const surveyByQuestion = surveys.reduce((acc, survey) => {
+        const question = survey.question || "Không xác định";
+        acc[question] = (acc[question] || 0) + 1;
+        return acc;
+      }, {} as { [key: string]: number });
+
       const excelData = [
-        {
-          ["Chỉ_số"]: "Tổng số câu hỏi",
-          ["Giá_trị"]: totalSurveys,
-        },
+        { ["Chỉ_số"]: "Tổng số câu hỏi", ["Giá_trị"]: totalElements },
         {
           ["Chỉ_số"]: "Tổng số câu hỏi đã xử lý",
-          ["Giá_trị"]: totalHandledSurveys,
+          ["Giá_trị"]: surveys.filter(
+            (survey) => (survey.collaborator?.totalSurveyHandled ?? 0) > 0
+          ).length,
         },
         ...Object.entries(surveyStatusDistribution).map(([status, count]) => ({
           ["Chỉ_số"]: `Trạng thái: ${status}`,
@@ -204,7 +174,7 @@ const FormSurveyCollaborator = () => {
       });
     } catch (error) {
       setNotification({
-        message: `Xuất dữ liệu thống kê thất bại: ${error}` + error,
+        message: `Xuất dữ liệu thống kê thất bại: ${error}`,
         type: "error",
       });
     }
@@ -238,7 +208,7 @@ const FormSurveyCollaborator = () => {
         });
       } else {
         await dispatch(
-            handleSurveys({ collaboratorId, surveyIds: selectedSurveys })
+          handleSurveys({ collaboratorId, surveyIds: selectedSurveys })
         ).unwrap();
         setNotification({
           message: "Xử lý các câu hỏi thành công!",
@@ -246,7 +216,9 @@ const FormSurveyCollaborator = () => {
         });
       }
 
-      dispatch(getSurveys());
+      dispatch(
+        getSurveysForCollaborator({ page: currentPage - 1, size: pageSize })
+      );
       setSelectedSurveys([]);
     } catch (error) {
       setNotification({
@@ -274,7 +246,9 @@ const FormSurveyCollaborator = () => {
         type: "success",
       });
 
-      dispatch(getSurveys());
+      dispatch(
+        getSurveysForCollaborator({ page: currentPage - 1, size: pageSize })
+      );
     } catch (error) {
       setNotification({
         message: "Xử lý câu hỏi thất bại: " + error,
@@ -290,7 +264,9 @@ const FormSurveyCollaborator = () => {
         message: "Hoàn thành câu hỏi thành công!",
         type: "success",
       });
-      dispatch(getSurveys());
+      dispatch(
+        getSurveysForCollaborator({ page: currentPage - 1, size: pageSize })
+      );
     } catch (error) {
       setNotification({
         message: "Hoàn thành câu hỏi thất bại: " + error,
@@ -315,18 +291,21 @@ const FormSurveyCollaborator = () => {
       }
 
       await dispatch(
-          responseSurvey({
-            surveyId: currentSurveyId,
-            collaboratorId,
-            responseText: formData.response,
-          })
+        responseSurvey({
+          surveyId: currentSurveyId,
+          collaboratorId,
+          responseText: formData.response,
+        })
       ).unwrap();
       setNotification({
         message: "Phản hồi câu hỏi thành công!",
         type: "success",
       });
-      dispatch(getSurveys());
+      dispatch(
+        getSurveysForCollaborator({ page: currentPage - 1, size: pageSize })
+      );
       setShowForm(false);
+      setFormData({ response: "" });
     } catch (error) {
       setNotification({
         message: "Phản hồi câu hỏi thất bại: " + error,
@@ -336,9 +315,11 @@ const FormSurveyCollaborator = () => {
   };
 
   useEffect(() => {
-    dispatch(getSurveys());
+    dispatch(
+      getSurveysForCollaborator({ page: currentPage - 1, size: pageSize })
+    );
     dispatch(getMyInfo());
-  }, [dispatch]);
+  }, [dispatch, currentPage, pageSize]);
 
   useEffect(() => {
     dispatch(getMyInfo()).then(() => dispatch(getCollaboratorByUserId()));
@@ -362,18 +343,19 @@ const FormSurveyCollaborator = () => {
     };
   }, [showForm]);
 
-  const totalSurveys = filteredSurveys.length;
+  // Thống kê tổng quan
+  const totalSurveys = totalElements;
 
-  const totalHandledSurveys = filteredSurveys.filter(
-      (survey) => (survey.collaborator?.totalSurveyHandled ?? 0) > 0
+  const totalHandledSurveys = surveys.filter(
+    (survey) => (survey.collaborator?.totalSurveyHandled ?? 0) > 0
   ).length;
 
-  const surveyStatusDistribution = filteredSurveys.reduce((acc, survey) => {
+  const surveyStatusDistribution = surveys.reduce((acc, survey) => {
     acc[survey.status.statusName] = (acc[survey.status.statusName] || 0) + 1;
     return acc;
   }, {} as { [key: string]: number });
 
-  const surveyByQuestion = filteredSurveys.reduce((acc, survey) => {
+  const surveyByQuestion = surveys.reduce((acc, survey) => {
     const question = survey.question || "Không xác định";
     acc[question] = (acc[question] || 0) + 1;
     return acc;
@@ -406,443 +388,351 @@ const FormSurveyCollaborator = () => {
   if (error) {
     const err = error as ErrorResponseProps;
     return (
-        <p>
-          Lỗi {err.code}: {err.message}
-        </p>
+      <p>
+        Lỗi {err.code}: {err.message}
+      </p>
     );
   }
 
   return (
-      <div className="p-4">
-        {notification && (
-            <div className="fixed top-4 right-4 z-50 transition-opacity">
-              <Notification
-                  message={notification.message}
-                  type={notification.type}
-                  onClose={() => setNotification(null)}
-              />
-            </div>
-        )}
+    <div className="p-4">
+      {/* Notification */}
+      {notification && (
+        <div className="fixed top-4 right-4 z-50 transition-opacity">
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        </div>
+      )}
 
-        {showForm && (
-            <>
-              <div
-                  className="fixed inset-0 bg-black opacity-50 z-40 backdrop-blur-sm"
-                  onClick={() => setShowForm(false)}
-              ></div>
-              <div className="fixed inset-0 flex items-center justify-center z-50">
-                <form
-                    className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full relative z-50"
-                    ref={formRef}
-                    onSubmit={handleResponseSurvey}
-                >
-                  <h3 className="text-lg font-semibold mb-4">Phản hồi câu hỏi</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                        type="text"
-                        name="response"
-                        placeholder="Nhập nội dung phản hồi"
-                        value={formData.response}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 pr-10"
-                        required
-                    />
-                  </div>
-                  <div className="flex justify-end mt-4 space-x-2">
-                    <button
-                        type="button"
-                        onClick={() => setShowForm(false)}
-                        className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg shadow-md hover:bg-gray-400 hover:text-gray-900 transition-all duration-300 ease-in-out transform hover:scale-105"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                        type="submit"
-                        className="px-6 py-2 bg-indigo-500 text-white rounded-lg shadow-md hover:bg-indigo-600 hover:shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105"
-                    >
-                      Gửi
-                    </button>
-                  </div>
-                </form>
+      {/* Form Response Survey */}
+      {showForm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black opacity-50 z-40 backdrop-blur-sm"
+            onClick={() => setShowForm(false)}
+          ></div>
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <form
+              className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full relative z-50"
+              ref={formRef}
+              onSubmit={handleResponseSurvey}
+            >
+              <h3 className="text-lg font-semibold mb-4">Phản hồi câu hỏi</h3>
+              <div className="mb-4">
+                <label htmlFor="response" className="block text-gray-700">
+                  Nội dung phản hồi:
+                </label>
+                <input
+                  type="text"
+                  name="response"
+                  id="response"
+                  placeholder="Nhập nội dung phản hồi"
+                  value={formData.response}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+                  required
+                />
               </div>
-            </>
-        )}
-
-        <div className="flex justify-between mb-4">
-          <h2 className="text-2xl font-semibold text-indigo-700">Quản lý câu hỏi</h2>
-          <div className="flex space-x-2">
-            <button
-                className="flex items-center px-3 py-1 bg-green-500 text-white
-                        rounded-lg hover:bg-green-600 transition duration-200
-                        ease-in-out transform hover:scale-105"
-                onClick={handleSurveyAction}
-            >
-              <FaQuestion className="mr-2" />
-              Xử lý câu hỏi người dùng
-            </button>
-            <button
-                className="flex items-center px-3 py-1 bg-green-500 text-white
-                        rounded-lg hover:bg-green-600 transition duration-200
-                        ease-in-out transform hover:scale-105"
-                onClick={handleExportStatisticsToExcel}
-            >
-              <FaQuestion className="mr-2" />
-              Phân tích dữ liệu sang excel
-            </button>
-            <button
-                className="flex items-center px-3 py-1 bg-indigo-500 text-white
-                        rounded-lg hover:bg-indigo-600 transition duration-200
-                        ease-in-out transform hover:scale-105"
-                onClick={handleExportToExcel}
-            >
-              <FaFileExcel className="mr-2" />
-              Xuất ra excel
-            </button>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 ease-in-out transform hover:scale-105"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
+                >
+                  Gửi
+                </button>
+              </div>
+            </form>
           </div>
+        </>
+      )}
+
+      {/* Header */}
+      <div className="flex justify-between mb-4">
+        <h2 className="text-2xl font-semibold text-indigo-700">
+          Quản lý câu hỏi
+        </h2>
+        <div className="flex space-x-2">
+          <button
+            className="flex items-center px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 ease-in-out transform hover:scale-105"
+            onClick={handleSurveyAction}
+          >
+            <FaQuestion className="mr-2" />
+            Xử lý câu hỏi người dùng
+          </button>
+          <button
+            className="flex items-center px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 ease-in-out transform hover:scale-105"
+            onClick={handleExportStatisticsToExcel}
+          >
+            <FaQuestion className="mr-2" />
+            Phân tích dữ liệu sang excel
+          </button>
+          <button
+            className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
+            onClick={handleExportToExcel}
+          >
+            <FaFileExcel className="mr-2" />
+            Xuất ra excel
+          </button>
         </div>
+      </div>
 
-        <div className="flex space-x-4 mb-4 justify-end items-center">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Lọc theo người mua:
-            </label>
-            <select
-                name="username"
-                value={filters.username}
-                onChange={handleFilterChange}
-                className="mt-1 p-2 border rounded-md"
-            >
-              <option value="">Lọc theo tên người dùng</option>
-              {Array.from(new Set(surveys.map((survey) => survey.user.username))).map(
-                  (username, index) => (
-                      <option key={index} value={username}>
-                        {username}
-                      </option>
-                  )
-              )}
-            </select>
-          </div>
+      {/* Bảng danh sách câu hỏi */}
+      {surveys.length > 0 && (
+        <div className="overflow-x-auto transition-opacity duration-500 ease-in-out border rounded-lg shadow-sm mb-6">
+          <table className="min-w-full bg-white border rounded-lg shadow-sm">
+            <thead>
+              <tr className="bg-gray-200 text-gray-700">
+                <th className="px-4 py-2 text-center">STT</th>
+                <th className="px-4 py-2 text-center">Tên người dùng</th>
+                <th className="px-4 py-2 text-center">Tên cộng tác viên</th>
+                <th className="px-4 py-2 text-center">
+                  Tổng số câu hỏi cộng tác viên đã xử lý
+                </th>
+                <th className="px-4 py-2 text-center">Trạng thái</th>
+                <th className="px-4 py-2 text-center">Câu hỏi</th>
+                <th className="px-4 py-2 text-center">Phản hồi</th>
+                <th className="px-4 py-2 text-center">Tạo lúc</th>
+                <th className="px-4 py-2 text-center">Phản hồi lúc</th>
+                <th className="px-4 py-2 text-center">Xử lý</th>
+                <th className="px-4 py-2 text-center">Phản hồi</th>
+                <th className="px-4 py-2 text-center">Hoàn thành</th>
+              </tr>
+            </thead>
+            <tbody>
+              {surveys.map((survey, index) => {
+                const isHandledByCurrentUser =
+                  survey.collaborator?.username === currentUsername ||
+                  !survey.collaborator?.username;
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Lọc theo cộng tác viên:
-            </label>
-            <select
-                name="collaboratorUsername"
-                value={filters.collaboratorUsername}
-                onChange={handleFilterChange}
-                className="mt-1 p-2 border rounded-md"
-            >
-              <option value="">Lọc theo tên cộng tác viên</option>
-              {Array.from(
-                  new Set(
-                      surveys.map((survey) => survey.collaborator?.username || "N/A")
-                  )
-              ).map((username, index) => (
-                  <option key={index} value={username}>
-                    {username}
-                  </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Lọc theo trạng thái câu hỏi:
-            </label>
-            <select
-                name="status"
-                value={filters.status}
-                onChange={handleFilterChange}
-                className="mt-1 border p-2 rounded"
-            >
-              <option value="">Lọc theo trạng thái câu hỏi</option>
-              {Array.from(
-                  new Set(surveys.map((survey) => survey.status.statusName))
-              ).map((status, index) => (
-                  <option key={index} value={status}>
-                    {status}
-                  </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Lọc theo tổng doanh thu:
-            </label>
-            <select
-                name="totalRevenue"
-                value={filters.totalRevenue}
-                onChange={handleFilterChange}
-                className="mt-1 border p-2 rounded"
-            >
-              <option value="">Lọc theo tổng doanh thu ({"≥"})</option>
-              <option value="100000">100,000</option>
-              <option value="500000">500,000</option>
-              <option value="1000000">1,000,000</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Lọc theo ngày tạo:
-            </label>
-            <select
-                name="createAt"
-                value={filters.createAt}
-                onChange={handleFilterChange}
-                className="mt-1 border p-2 rounded"
-            >
-              <option value="">Lọc theo ngày tạo</option>
-              {Array.from(
-                  new Set(
-                      surveys.map((survey) =>
-                          new Date(survey.createdAt).toLocaleDateString()
-                      )
-                  )
-              ).map((date, index) => (
-                  <option key={index} value={date}>
-                    {date}
-                  </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Lọc theo ngày phản hồi:
-            </label>
-            <select
-                name="responseAt"
-                value={filters.responseAt ?? ""}
-                onChange={handleFilterChange}
-                className="mt-1 border p-2 rounded"
-            >
-              <option value="">Lọc theo ngày phản hồi</option>
-              {Array.from(
-                  new Set(
-                      surveys
-                          .map((survey) =>
-                              survey.responseAt
-                                  ? new Date(survey.responseAt).toLocaleDateString()
-                                  : null
-                          )
-                          .filter((date) => date)
-                  )
-              ).map((date, index) => (
-                  <option key={index} value={date ?? ""}>
-                    {date}
-                  </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {surveys.length > 0 && (
-            <div className="overflow-x-auto transition-opacity duration-500 ease-in-out border rounded-lg shadow-sm mb-6">
-              <table className="min-w-full bg-white border rounded-lg shadow-sm">
-                <thead>
-                <tr className="bg-gray-200 text-gray-700">
-                  <th className="px-4 py-2 text-center">Id</th>
-                  <th className="px-4 py-2 text-center">Tên người dùng</th>
-                  <th className="px-4 py-2 text-center">Tên cộng tác viên</th>
-                  <th className="px-4 py-2 text-center">
-                    Tổng số câu hỏi cộng tác viên đã xử lý
-                  </th>
-                  <th className="px-4 py-2 text-center">Trạng thái</th>
-                  <th className="px-4 py-2 text-center">Câu hỏi</th>
-                  <th className="px-4 py-2 text-center">Phản hồi</th>
-                  <th className="px-4 py-2 text-center">Tạo lúc</th>
-                  <th className="px-4 py-2 text-center">Phản hồi lúc</th>
-                </tr>
-                </thead>
-                <tbody>
-                {paginatedSurveys.length > 0 ? (
-                    paginatedSurveys.map((survey, index) => (
-                        <tr
-                            key={survey.id}
-                            className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${
-                                selectedSurveys.includes(survey.id)
-                                    ? "bg-indigo-100"
-                                    : "hover:bg-gray-50"
-                            }`}
-                            onClick={() => handleRowSelect(survey.id)}
-                        >
-                          <td className="border px-4 py-2 text-center">
-                            {index + 1}
-                          </td>
-                          <td className="border px-4 py-2 text-center">
-                            {survey.user.username}
-                          </td>
-                          <td className="border px-4 py-2 text-center">
-                            {survey.collaborator?.username || "N/A"}
-                          </td>
-                          <td className="border px-4 py-2 text-center">
-                            {survey.collaborator?.totalSurveyHandled || 0}
-                          </td>
-                          <td className="border px-4 py-2 text-center">
+                return (
+                  <tr
+                    key={survey.id}
+                    className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${
+                      selectedSurveys.includes(survey.id)
+                        ? "bg-indigo-100"
+                        : "hover:bg-gray-50"
+                    }`}
+                    onClick={() => {
+                      if (isHandledByCurrentUser) {
+                        handleRowSelect(survey.id);
+                      }
+                    }}
+                  >
+                    <td className="border px-4 py-2 text-center">
+                      {(currentPage - 1) * pageSize + index + 1}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
+                      {survey.user.username}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
+                      {survey.collaborator?.username || "N/A"}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
+                      {survey.collaborator?.totalSurveyHandled || 0}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
                       <span
-                          className={`px-3 py-1 rounded-full text-white text-sm whitespace-nowrap flex justify-center items-center ${
-                              survey.status.statusName === "Open"
-                                  ? "bg-green-500"
-                                  : survey.status.statusName === "Complete"
-                                      ? "bg-slate-400"
-                                      : "bg-indigo-500"
-                          }`}
+                        className={`px-3 py-1 rounded-full text-white text-sm whitespace-nowrap flex justify-center items-center ${
+                          survey.status.statusName === "Open"
+                            ? "bg-green-500"
+                            : survey.status.statusName === "Complete"
+                            ? "bg-slate-400"
+                            : "bg-indigo-500"
+                        }`}
                       >
                         {survey.status.statusName}
                       </span>
-                          </td>
-                          <td className="border px-4 py-2 text-center">
-                            {survey.question}
-                          </td>
-                          <td className="border px-4 py-2 text-center">
-                            {survey.response || "N/A"}
-                          </td>
-                          <td className="border px-4 py-2 text-center">
-                            {new Date(survey.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="border px-4 py-2 text-center">
-                            {survey.responseAt
-                                ? new Date(survey.responseAt).toLocaleDateString()
-                                : "N/A"}
-                          </td>
-                          <td className="border px-4 py-2 text-center space-x-2">
-                            <button
-                                className={`text-yellow-600 hover:text-yellow-800 transition transform ${
-                                    survey.status.statusName === "In Progress" ||
-                                    survey.status.statusName === "Complete"
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : "hover:scale-110"
-                                }`}
-                                disabled={
-                                    survey.status.statusName === "Complete" ||
-                                    survey.status.statusName === "In Progress"
-                                }
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSurveyClick(survey.id);
-                                }}
-                            >
-                              <FaChevronCircleLeft />
-                            </button>
-                          </td>
-                          <td className="border px-4 py-2 text-center space-x-2">
-                            <button
-                                className={`text-blue-600 hover:text-blue-800 transition transform ${
-                                    survey.status.statusName === "Complete" ||
-                                    survey.status.statusName === "Open"
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : "hover:scale-110"
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCurrentSurveyId(survey.id);
-                                  setShowForm(true);
-                                }}
-                                disabled={
-                                    survey.status.statusName === "Complete" ||
-                                    survey.status.statusName === "Open"
-                                }
-                            >
-                              <FaReply />
-                            </button>
-                          </td>
-                          <td className="border px-4 py-2 text-center space-x-2">
-                            <button
-                                className={`text-green-600 hover:text-green-800 transition transform ${
-                                    survey.status.statusName === "Open" ||
-                                    survey.status.statusName === "Complete"
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : "hover:scale-110"
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCompleteSurvey(survey.id);
-                                }}
-                                disabled={
-                                    survey.status.statusName === "Open" ||
-                                    survey.status.statusName === "Complete"
-                                }
-                            >
-                              <FaCheck />
-                            </button>
-                          </td>
-                        </tr>
-                    ))
-                ) : (
-                    <tr>
-                      <td colSpan={14} className="text-center py-4">
-                        Không có câu hỏi
-                      </td>
-                    </tr>
-                )}
-                </tbody>
-              </table>
-            </div>
-        )}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
+                      {survey.question}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
+                      {survey.response || "N/A"}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
+                      {new Date(survey.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="border px-4 py-2 text-center">
+                      {survey.responseAt
+                        ? new Date(survey.responseAt).toLocaleDateString()
+                        : "N/A"}
+                    </td>
+                    <td className="border px-4 py-2 text-center space-x-2">
+                      <button
+                        className={`text-yellow-600 hover:text-yellow-800 transition transform ${
+                          !isHandledByCurrentUser ||
+                          survey.status.statusName === "In Progress" ||
+                          survey.status.statusName === "Complete"
+                            ? "opacity-50 cursor-not-allowed"
+                            : "hover:scale-110"
+                        }`}
+                        disabled={
+                          !isHandledByCurrentUser ||
+                          survey.status.statusName === "In Progress" ||
+                          survey.status.statusName === "Complete"
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSurveyClick(survey.id);
+                        }}
+                        title={
+                          !isHandledByCurrentUser
+                            ? "Không thể xử lý câu hỏi của người khác."
+                            : survey.status.statusName === "In Progress" ||
+                              survey.status.statusName === "Complete"
+                            ? "Không thể xử lý câu hỏi ở trạng thái này."
+                            : "Xử lý câu hỏi."
+                        }
+                      >
+                        <FaChevronCircleLeft />
+                      </button>
+                    </td>
+                    <td className="border px-4 py-2 text-center space-x-2">
+                      <button
+                        className={`text-blue-600 hover:text-blue-800 transition transform ${
+                          !isHandledByCurrentUser ||
+                          survey.status.statusName === "Complete" ||
+                          survey.status.statusName === "Open"
+                            ? "opacity-50 cursor-not-allowed"
+                            : "hover:scale-110"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentSurveyId(survey.id);
+                          setShowForm(true);
+                        }}
+                        disabled={
+                          !isHandledByCurrentUser ||
+                          survey.status.statusName === "Complete" ||
+                          survey.status.statusName === "Open"
+                        }
+                        title={
+                          !isHandledByCurrentUser
+                            ? "Không thể phản hồi câu hỏi của người khác."
+                            : survey.status.statusName === "Complete" ||
+                              survey.status.statusName === "Open"
+                            ? "Không thể phản hồi câu hỏi ở trạng thái này."
+                            : "Phản hồi câu hỏi."
+                        }
+                      >
+                        <FaReply />
+                      </button>
+                    </td>
+                    <td className="border px-4 py-2 text-center space-x-2">
+                      <button
+                        className={`text-green-600 hover:text-green-800 transition transform ${
+                          !isHandledByCurrentUser ||
+                          survey.status.statusName === "Open" ||
+                          survey.status.statusName === "Complete"
+                            ? "opacity-50 cursor-not-allowed"
+                            : "hover:scale-110"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCompleteSurvey(survey.id);
+                        }}
+                        disabled={
+                          !isHandledByCurrentUser ||
+                          survey.status.statusName === "Open" ||
+                          survey.status.statusName === "Complete"
+                        }
+                        title={
+                          !isHandledByCurrentUser
+                            ? "Không thể hoàn thành câu hỏi của người khác."
+                            : survey.status.statusName === "Open" ||
+                              survey.status.statusName === "Complete"
+                            ? "Không thể hoàn thành câu hỏi ở trạng thái này."
+                            : "Hoàn thành câu hỏi."
+                        }
+                      >
+                        <FaCheck />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-        <div className="flex justify-between items-center mt-4 mb-6">
-          <p className="text-sm text-gray-600">
-            Đang hiển thị từ {(currentPage - 1) * rowsPerPage + 1} đến{" "}
-            {Math.min(currentPage * rowsPerPage, surveys.length)} trên tổng số{" "}
-            {surveys.length} mục
+      {/* Phân Trang */}
+      <div className="flex justify-between items-center mt-4 mb-6">
+        <p className="text-sm text-gray-600">
+          Đang hiển thị từ {(currentPage - 1) * pageSize + 1} đến{" "}
+          {Math.min(currentPage * pageSize, totalElements)} trên tổng số{" "}
+          {totalElements} mục
+        </p>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(newPage) => {
+            if (newPage > 0 && newPage <= totalPages) {
+              dispatch(
+                getSurveysForCollaborator({ page: newPage - 1, size: pageSize })
+              );
+            }
+          }}
+        />
+      </div>
+
+      {/* Thống kê tổng quan */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white shadow-lg rounded-lg p-4">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            Tổng số câu hỏi
+          </h3>
+          <p className="text-3xl font-bold text-indigo-600">{totalSurveys}</p>
+        </div>
+        <div className="bg-white shadow-lg rounded-lg p-4">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            Tổng số câu hỏi đã xử lý
+          </h3>
+          <p className="text-3xl font-bold text-green-600">
+            {totalHandledSurveys}
           </p>
-
-          <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-          />
         </div>
-
-        {/* Thống kê tổng quan */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white shadow-lg rounded-lg p-4">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              Tổng số câu hỏi
-            </h3>
-            <p className="text-3xl font-bold text-indigo-600">{totalSurveys}</p>
-          </div>
-          <div className="bg-white shadow-lg rounded-lg p-4">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              Tổng số câu hỏi đã xử lý
-            </h3>
-            <p className="text-3xl font-bold text-green-600">
-              {totalHandledSurveys}
-            </p>
-          </div>
-          <div className="bg-white shadow-lg rounded-lg p-4">
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              Trạng thái câu hỏi
-            </h3>
-            <ul className="text-gray-600">
-              {Object.entries(surveyStatusDistribution).map(([status, count]) => (
-                  <li key={status}>
-                    {status}: {count}
-                  </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Biểu đồ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <Chart
-              type="pie"
-              data={statusChartData}
-              options={{ maintainAspectRatio: false }}
-              title="Phân phối trạng thái câu hỏi"
-          />
-          <Chart
-              type="bar"
-              data={questionChartData}
-              options={barChartOptions}
-              title="Phân phối câu hỏi theo nội dung"
-          />
+        <div className="bg-white shadow-lg rounded-lg p-4">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            Trạng thái câu hỏi
+          </h3>
+          <ul className="text-gray-600">
+            {Object.entries(surveyStatusDistribution).map(([status, count]) => (
+              <li key={status}>
+                {status}: {count}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
+
+      {/* Biểu đồ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <Chart
+          type="pie"
+          data={statusChartData}
+          options={{ maintainAspectRatio: false }}
+          title="Phân phối trạng thái câu hỏi"
+        />
+        <Chart
+          type="bar"
+          data={questionChartData}
+          options={barChartOptions}
+          title="Phân phối câu hỏi theo nội dung"
+        />
+      </div>
+    </div>
   );
 };
 

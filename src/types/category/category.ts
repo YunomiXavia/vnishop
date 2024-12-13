@@ -1,7 +1,9 @@
+import { ErrorResponseProps } from "@/types/error/error";
+
 export interface CategoryState {
   categories: Category[];
   loading: boolean;
-  error: string | null;
+  error: ErrorResponseProps | null;
 }
 
 export interface Category {

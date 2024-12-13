@@ -39,25 +39,21 @@ const Sidebar = ({ menuItems = [] }: SidebarProps) => {
   };
 
   return (
-    <div className="pl-4 w-64 h-full bg-indigo-900 text-white p-6 flex flex-col justify-between shadow-lg transition-transform transform">
+    <div className="fixed top-0 left-0 w-64 h-screen bg-indigo-900 text-white p-6 flex flex-col justify-between shadow-lg">
       {/* Top Section: User Info */}
       <div>
-        <div className="flex items-center mb-6 transition-opacity duration-700 ease-in-out">
+        <div className="flex items-center mb-6">
           <Link href="/my-info" passHref>
-            <FaAddressBook className="mr-3 text-white text-lg cursor-pointer hover:text-indigo-300 transition-all duration-300 ease-in-out" />
+            <FaAddressBook className="mr-3 text-white text-lg cursor-pointer hover:text-indigo-300 transition-all duration-300" />
           </Link>
           <div className="flex-1">
             <Link href="/my-info" passHref>
-              <h2 className="text-lg font-semibold leading-tight hover:underline hover:text-indigo-300 transition-all duration-300 ease-in-out  cursor-pointer">
+              <h2 className="text-lg font-semibold leading-tight hover:underline hover:text-indigo-300 cursor-pointer">
                 {username}
               </h2>
             </Link>
-            <p className="text-sm text-gray-300 mt-1 hover:text-indigo-300 transition-all duration-300 ease-in-out cursor-default">
-              {email}
-            </p>
-            <p className="text-xs text-gray-400 mt-1 hover:text-indigo-300 transition-all duration-300 ease-in-out cursor-default">
-              {roleName}
-            </p>
+            <p className="text-sm text-gray-300 mt-1">{email}</p>
+            <p className="text-xs text-gray-400 mt-1">{roleName}</p>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 // Response Login
-import {ErrorResponseProps} from "@/types/error/error";
+import { ErrorResponseProps } from "@/types/error/error";
 
 export interface LoginResponse {
   code: number;

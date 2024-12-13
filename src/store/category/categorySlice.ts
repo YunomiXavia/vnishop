@@ -1,6 +1,12 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axiosInstance from "@/utils/api/axiosConfig";
-import { CategoryRequestProps, CategoryState } from "@/types/category/category";
+import {
+  Category,
+  CategoryRequestProps,
+  CategoryState,
+} from "@/types/category/category";
+import { ErrorResponseProps } from "@/types/error/error";
+import { extractError } from "@/utils/utils/helper";
 
 const initialState: CategoryState = {
   categories: [],
@@ -9,67 +15,100 @@ const initialState: CategoryState = {
 };
 
 // Fetch All Categories
-export const getCategories = createAsyncThunk(
-  "admin/categories/getCategories",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get("/admin/categories");
-      if (response.data.code === 2000) {
-        return response.data.result;
-      }
-    } catch (error) {
-      return rejectWithValue("Failed to fetch categories: " + error);
+export const getCategories = createAsyncThunk<
+  Category[],
+  void,
+  { rejectValue: ErrorResponseProps }
+>("admin/categories/getCategories", async (_, { rejectWithValue }) => {
+  try {
+    const response = await axiosInstance.get("/admin/categories");
+    if (response.data.code === 2000) {
+      return response.data.result as Category[];
+    } else {
+      return rejectWithValue({
+        code: response.data.code,
+        message: response.data.message,
+      });
     }
+  } catch (error) {
+    return rejectWithValue(extractError(error));
   }
-);
+});
 
 // Create a Category
-export const createCategory = createAsyncThunk(
-  "admin/category/createCategory",
-  async (categoryData: CategoryRequestProps, { rejectWithValue }) => {
+export const createCategory = createAsyncThunk<
+  Category,
+  CategoryRequestProps,
+  { rejectValue: ErrorResponseProps }
+>(
+  "admin/categories/createCategory",
+  async (categoryData, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post(
         "/admin/category",
         categoryData
       );
-      return response.data.result;
+      if (response.data.code === 2000) {
+        return response.data.result;
+      } else {
+        return rejectWithValue({
+          code: response.data.code,
+          message: response.data.message,
+        });
+      }
     } catch (error) {
-      return rejectWithValue("Failed to create category: " + error);
+      return rejectWithValue(extractError(error));
     }
   }
 );
 
 // Update a Category
-export const updateCategory = createAsyncThunk(
-  "admin/category/updateCategory",
-  async (
-    {
-      id,
-      categoryData,
-    }: { id: string; categoryData: Partial<CategoryRequestProps> },
-    { rejectWithValue }
-  ) => {
+export const updateCategory = createAsyncThunk<
+  Category,
+  { id: string; categoryData: Partial<CategoryRequestProps> },
+  { rejectValue: ErrorResponseProps }
+>(
+  "admin/categories/updateCategory",
+  async ({ id, categoryData }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.put(
         `/admin/category/${id}`,
         categoryData
       );
-      return response.data.result;
+      if (response.data.code === 2000) {
+        return response.data.result;
+      } else {
+        return rejectWithValue({
+          code: response.data.code,
+          message: response.data.message,
+        });
+      }
     } catch (error) {
-      return rejectWithValue("Failed to update category: " + error);
+      return rejectWithValue(extractError(error));
     }
   }
 );
 
 // Delete a Category
-export const deleteCategory = createAsyncThunk(
-  "admin/category/deleteCategory",
+export const deleteCategory = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: ErrorResponseProps }
+>(
+  "admin/categories/deleteCategory",
   async (id: string, { rejectWithValue }) => {
     try {
-      await axiosInstance.delete(`/admin/category/${id}`);
-      return id;
+      const response = await axiosInstance.delete(`/admin/category/${id}`);
+      if (response.data.code === 2000) {
+        return id;
+      } else {
+        return rejectWithValue({
+          code: response.data.code,
+          message: response.data,
+        });
+      }
     } catch (error) {
-      return rejectWithValue("Failed to delete category: " + error);
+      return rejectWithValue(extractError(error));
     }
   }
 );
@@ -86,12 +125,15 @@ const categorySlice = createSlice({
         state.error = null;
       })
       .addCase(getCategories.fulfilled, (state, action) => {
-        state.loading = false;
         state.categories = action.payload;
+        state.loading = false;
       })
       .addCase(getCategories.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || {
+          code: -1,
+          message: "Lấy danh sách danh mục thất bại.",
+        };
       })
       // Create a Category
       .addCase(createCategory.pending, (state) => {
@@ -104,7 +146,10 @@ const categorySlice = createSlice({
       })
       .addCase(createCategory.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || {
+          code: -1,
+          message: "Tạo danh mục thất bại.",
+        };
       })
       // Update a Category
       .addCase(updateCategory.pending, (state) => {
@@ -120,7 +165,10 @@ const categorySlice = createSlice({
       })
       .addCase(updateCategory.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || {
+          code: -1,
+          message: "Cập nhật danh mục thất bại.",
+        };
       })
       // Delete a Category
       .addCase(deleteCategory.pending, (state) => {
@@ -135,7 +183,10 @@ const categorySlice = createSlice({
       })
       .addCase(deleteCategory.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || {
+          code: -1,
+          message: "Xóa danh mục thất bại.",
+        };
       });
   },
 });

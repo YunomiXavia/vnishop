@@ -7,13 +7,11 @@ import SidebarAdmin from "@/components/sidebar/SidebarAdmin";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-      <Provider store={store}>
-        <div className="flex h-screen">
-          <SidebarAdmin />
-          <main className="flex-1 p-8 bg-gray-100">
-            {children}
-          </main>
-        </div>
-      </Provider>
+    <Provider store={store}>
+      <div className="flex">
+        <SidebarAdmin />
+        <main className="ml-64 flex-1 p-6 overflow-auto">{children}</main>
+      </div>
+    </Provider>
   );
 }

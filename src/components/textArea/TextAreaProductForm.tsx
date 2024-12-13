@@ -1,14 +1,13 @@
-import { InputTextProductProps } from "@/types/component/input/input";
 import { Controller, useFormContext } from "react-hook-form";
-import React from "react";
 import { EyeIcon, EyeOffIcon } from "@/constant/icons/Icon";
+import { TextAreaProductProps } from "@/types/textArea/textArea";
 
-const InputTextProductForm: React.FC<
-  InputTextProductProps & {
+const TextAreaProductForm: React.FC<
+  TextAreaProductProps & {
     isPassword?: boolean;
     showPassword?: boolean;
     toggleShowPassword?: () => void;
-    as?: "select";
+    as?: "select" | "textarea";
   }
 > = ({
   name,
@@ -49,6 +48,16 @@ const InputTextProductForm: React.FC<
               >
                 {children}
               </select>
+            ) : as === "textarea" ? (
+              <textarea
+                {...field}
+                id={name}
+                placeholder={placeholder}
+                className={`w-full px-4 py-2 border ${
+                  error ? "border-red-500" : "border-gray-300"
+                } rounded-lg focus:outline-none focus:border-indigo-500`}
+                rows={5} // Adjust the default number of rows if necessary
+              />
             ) : (
               <input
                 {...field}
@@ -79,4 +88,4 @@ const InputTextProductForm: React.FC<
   );
 };
 
-export default InputTextProductForm;
+export default TextAreaProductForm;

@@ -1,15 +1,15 @@
 import { User, UserBasicInfo } from "@/types/user/user";
-import {ErrorResponseProps} from "@/types/error/error";
+import { ErrorResponseProps } from "@/types/error/error";
 
 // Collaborator State for collaboratorSlice
 export interface CollaboratorState {
   collaborators: Collaborator[];
   loading: boolean;
   error: ErrorResponseProps | null;
-  currentPage: number,
-  totalPages: number,
-  totalElements: number,
-  pageSize: number,
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
 }
 
 // Collaborator Interface

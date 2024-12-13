@@ -2,10 +2,12 @@
 
 import {
   FaBox,
-  FaCalendarDay, FaChalkboardTeacher,
+  FaCalendarDay,
+  FaChalkboardTeacher,
   FaChartBar,
   FaFileContract,
   FaQuestionCircle,
+  FaThList,
   FaUser,
   FaUserTie,
 } from "react-icons/fa";
@@ -27,6 +29,11 @@ const SidebarAdmin = () => {
       href: "/admin/collaborators",
       icon: FaUserTie,
       label: "Quản lý cộng tác viên",
+    },
+    {
+      href: "/admin/categories",
+      icon: FaThList,
+      label: "Quản lý danh mục",
     },
     {
       href: "/admin/products",
@@ -53,11 +60,6 @@ const SidebarAdmin = () => {
       icon: FaCalendarDay,
       label: "Quản lý đăng kí dịch vụ",
     },
-    // {
-    //   href: "/admin/roles",
-    //   icon: FaUser,
-    //   label: "Roles",
-    // },
   ];
 
   return (

@@ -15,9 +15,8 @@ import { ErrorResponseProps } from "@/types/error/error";
 
 const FormRevenueAdmin: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { collaborators, loading, error } = useAppSelector(
-      (state) => state.collaborators
-  );
+  const { collaborators, loading, error, currentPage, totalPages, pageSize } =
+    useAppSelector((state) => state.collaborators);
   const { revenueDetails } = useAppSelector((state) => state.revenue);
 
   const [filters, setFilters] = useState({
@@ -29,27 +28,26 @@ const FormRevenueAdmin: React.FC = () => {
   });
 
   const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>(
-      []
+    []
   );
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
-
+  // Gọi API lần đầu
   useEffect(() => {
-    dispatch(getCollaborators());
-  }, [dispatch]);
+    dispatch(getCollaborators({ page: 0, size: pageSize }));
+  }, [dispatch, pageSize]);
 
+  // Mỗi khi collaborators thay đổi, fetch doanh thu cho từng collaborator
   useEffect(() => {
     collaborators.forEach((collaborator) => {
       dispatch(getCollaboratorRevenueDetails(collaborator.id));
     });
   }, [collaborators, dispatch]);
 
-  // Handle Row Select
+  // Xử lý chọn dòng
   const handleRowSelect = (collaboratorId: string) => {
     setSelectedCollaborators((prevCollaborators) => {
       if (prevCollaborators.includes(collaboratorId)) {
@@ -59,59 +57,67 @@ const FormRevenueAdmin: React.FC = () => {
     });
   };
 
-  // Filter collaborators
+  // Lọc dữ liệu
   const filteredCollaborators = collaborators.filter((collaborator) => {
     const revenueData = revenueDetails.find(
-        (detail) => detail.collaboratorId === collaborator.id
+      (detail) => detail.collaboratorId === collaborator.id
     );
 
-    const { username, totalOrdersHandled, totalCommission, totalRevenue, revenueWithCommission } = filters;
+    const {
+      username,
+      totalOrdersHandled,
+      totalCommission,
+      totalRevenue,
+      revenueWithCommission,
+    } = filters;
+
+    const orderVal = totalOrdersHandled ? Number(totalOrdersHandled) : null;
+    const commissionVal = totalCommission ? Number(totalCommission) : null;
+    const revenueVal = totalRevenue ? Number(totalRevenue) : null;
+    const revenueCommVal = revenueWithCommission
+      ? Number(revenueWithCommission)
+      : null;
 
     const matchUsername =
-        username === "" || collaborator.user.username.includes(username);
+      username === "" ||
+      collaborator.user.username.toLowerCase().includes(username.toLowerCase());
 
     const matchTotalOrders =
-        totalOrdersHandled === "" ||
-        (collaborator.totalOrdersHandled ?? 0) >= Number(totalOrdersHandled);
+      totalOrdersHandled === "" ||
+      (collaborator.totalOrdersHandled ?? 0) >= (orderVal ?? 0);
 
     const matchTotalCommission =
-        totalCommission === "" ||
-        (revenueData?.totalCommission || 0) >= Number(totalCommission);
+      totalCommission === "" ||
+      (revenueData?.totalCommission || 0) >= (commissionVal ?? 0);
 
     const matchTotalRevenue =
-        totalRevenue === "" ||
-        (revenueData?.totalRevenue || 0) >= Number(totalRevenue);
+      totalRevenue === "" ||
+      (revenueData?.totalRevenue || 0) >= (revenueVal ?? 0);
 
     const matchRevenueWithCommission =
-        revenueWithCommission === "" ||
-        (revenueData?.totalRevenueWithCommission || 0) >=
-        Number(revenueWithCommission);
+      revenueWithCommission === "" ||
+      (revenueData?.totalRevenueWithCommission || 0) >= (revenueCommVal ?? 0);
 
     return (
-        matchUsername &&
-        matchTotalOrders &&
-        matchTotalCommission &&
-        matchTotalRevenue &&
-        matchRevenueWithCommission
+      matchUsername &&
+      matchTotalOrders &&
+      matchTotalCommission &&
+      matchTotalRevenue &&
+      matchRevenueWithCommission
     );
   });
 
-  const totalPages = Math.ceil(filteredCollaborators.length / pageSize);
-  const startIdx = (currentPage - 1) * pageSize;
-  const endIdx = startIdx + pageSize;
-  const currentCollaborators = filteredCollaborators.slice(startIdx, endIdx);
-
-  const handleFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({
       ...filters,
       [event.target.name]: event.target.value,
     });
   };
 
-  // Calculate overview data
-  const overviewData = collaborators.map((collaborator) => {
+  // Tính toán dữ liệu tổng quan
+  const overviewData = filteredCollaborators.map((collaborator) => {
     const revenueData = revenueDetails.find(
-        (detail) => detail.collaboratorId === collaborator.id
+      (detail) => detail.collaboratorId === collaborator.id
     );
     return {
       username: collaborator.user.username,
@@ -122,33 +128,33 @@ const FormRevenueAdmin: React.FC = () => {
     };
   });
 
-  // Chart data
+  // Dữ liệu chart
   const chartData = {
     labels: overviewData.map((data) => data.username),
     datasets: [
       {
-        label: "Tổng doanh thu (VND)",
+        label: "D.thu",
         data: overviewData.map((data) => data.totalRevenue),
         backgroundColor: "rgba(54, 162, 235, 0.6)",
         borderColor: "rgba(54, 162, 235, 1)",
         borderWidth: 1,
       },
       {
-        label: "Doanh thu có hoa hồng (VND)",
+        label: "D.thu+HH",
         data: overviewData.map((data) => data.revenueWithCommission),
         backgroundColor: "rgba(75, 192, 192, 0.6)",
         borderColor: "rgba(75, 192, 192, 1)",
         borderWidth: 1,
       },
       {
-        label: "Tổng hoa hồng (VND)",
+        label: "H.hồng",
         data: overviewData.map((data) => data.totalCommission),
         backgroundColor: "rgba(255, 99, 132, 0.6)",
         borderColor: "rgba(255, 99, 132, 1)",
         borderWidth: 1,
       },
       {
-        label: "Tổng đơn hàng đã xử lý",
+        label: "ĐH xử lý",
         data: overviewData.map((data) => data.totalOrdersHandled),
         backgroundColor: "rgba(153, 102, 255, 0.6)",
         borderColor: "rgba(153, 102, 255, 1)",
@@ -159,53 +165,98 @@ const FormRevenueAdmin: React.FC = () => {
 
   const handleExportToExcel = () => {
     try {
-      const excelData = collaborators.map((collaborator, index) => {
+      const excelData = filteredCollaborators.map((collaborator, index) => {
         const revenueData = revenueDetails.find(
-            (detail) => detail.collaboratorId === collaborator.id
+          (detail) => detail.collaboratorId === collaborator.id
         );
         return {
           STT: index + 1,
-          ["ID Cộng tác viên"]: collaborator.id,
-          ["ID Người dùng"]: collaborator.user.id,
+          ["CTV ID"]: collaborator.id,
+          ["User ID"]: collaborator.user.id,
           Email: collaborator.user.email,
-          ["Vai Trò"]: collaborator.user.role,
-          ["Tên"]: collaborator.user.firstName,
-          ["Họ"]: collaborator.user.lastName,
-          ["Số điện thoại"]: collaborator.user.phoneNumber,
-          ["Ngày tham gia"]: new Date(collaborator.user.dateJoined).toLocaleDateString(),
-          ["Ngày sinh"]: collaborator.user.birthDate
-              ? new Date(collaborator.user.birthDate).toLocaleDateString()
-              : "N/A",
-          ["Tổng chi tiêu"]: collaborator.user.totalSpent,
-          ["Mã giới thiệu"]: collaborator.referralCode,
-          ["Tỷ lệ hoa hồng"]: collaborator.commissionRate,
-          ["Tổng đơn hàng đã xử lý"]: collaborator.totalOrdersHandled,
-          ["Tổng khảo sát đã xử lý"]: collaborator.totalSurveyHandled,
-         [ "Tổng hoa hồng đã nhận"]:
-              formatCurrencyVND(collaborator.totalCommissionEarned),
-          ["Tổng doanh thu (VND)"]:
-              formatCurrencyVND(revenueData?.totalRevenue || 0),
-          ["Tổng hoa hồng (VND)"]:
-              formatCurrencyVND(revenueData?.totalCommission || 0),
-          ["Doanh thu có hoa hồng (VND)"]:
-              formatCurrencyVND(revenueData?.totalRevenueWithCommission || 0),
+          Role: collaborator.user.role,
+          FName: collaborator.user.firstName,
+          LName: collaborator.user.lastName,
+          Phone: collaborator.user.phoneNumber,
+          Joined: new Date(collaborator.user.dateJoined).toLocaleDateString(),
+          Birth: collaborator.user.birthDate
+            ? new Date(collaborator.user.birthDate).toLocaleDateString()
+            : "N/A",
+          Spent: collaborator.user.totalSpent,
+          RefCode: collaborator.referralCode,
+          CommRate: collaborator.commissionRate,
+          ["ĐH xử lý"]: collaborator.totalOrdersHandled,
+          Survey: collaborator.totalSurveyHandled,
+          ["HH nhận"]: formatCurrencyVND(collaborator.totalCommissionEarned),
+          ["D.thu"]: formatCurrencyVND(revenueData?.totalRevenue || 0),
+          ["HH"]: formatCurrencyVND(revenueData?.totalCommission || 0),
+          ["D.thu+HH"]: formatCurrencyVND(
+            revenueData?.totalRevenueWithCommission || 0
+          ),
         };
       });
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       const workbook = XLSX.utils.book_new();
 
-      XLSX.utils.book_append_sheet(workbook, worksheet, "CongTacVien");
-
-      XLSX.writeFile(workbook, "CongTacVienDoanhThu.xlsx");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "CTV");
+      XLSX.writeFile(workbook, "CTV.xlsx");
 
       setNotification({
-        message: "Xuất dữ liệu ra Excel thành công!",
+        message: "Xuất dữ liệu (CTV) ra Excel thành công!",
         type: "success",
       });
-    } catch (error) {
+    } catch (error: any) {
       setNotification({
         message: "Xuất dữ liệu thất bại: " + error,
+        type: "error",
+      });
+    }
+  };
+
+  const handleExportStatisticalDataToExcel = () => {
+    // Tính tổng
+    const totalCommissionSum = overviewData.reduce(
+      (sum, data) => sum + data.totalCommission,
+      0
+    );
+    const totalRevenueSum = overviewData.reduce(
+      (sum, data) => sum + data.totalRevenue,
+      0
+    );
+    const totalRevenueWithCommissionSum = overviewData.reduce(
+      (sum, data) => sum + data.revenueWithCommission,
+      0
+    );
+    const totalOrdersSum = overviewData.reduce(
+      (sum, data) => sum + data.totalOrdersHandled,
+      0
+    );
+
+    // Dữ liệu thống kê xuất ra
+    const statisticalData = [
+      {
+        ["Tổng HH (VND)"]: totalCommissionSum,
+        ["Tổng DT (VND)"]: totalRevenueSum,
+        ["DT+HH (VND)"]: totalRevenueWithCommissionSum,
+        ["ĐH xử lý"]: totalOrdersSum,
+      },
+    ];
+
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(statisticalData);
+      const workbook = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "ThongKe");
+      XLSX.writeFile(workbook, "ThongKe.xlsx");
+
+      setNotification({
+        message: "Xuất dữ liệu thống kê ra Excel thành công!",
+        type: "success",
+      });
+    } catch (error: any) {
+      setNotification({
+        message: "Xuất dữ liệu thống kê thất bại: " + error,
         type: "error",
       });
     }
@@ -216,173 +267,163 @@ const FormRevenueAdmin: React.FC = () => {
   if (error) {
     const err = error as ErrorResponseProps;
     return (
-        <p>
-          Lỗi {err.code}: {err.message}
-        </p>
+      <p>
+        Lỗi {err.code}: {err.message}
+      </p>
     );
   }
 
+  const displayPage = currentPage + 1;
+
   return (
-      <div className="p-4">
-        {notification && (
-            <div className="fixed top-4 right-4 z-50 transition-opacity">
-              <Notification
-                  message={notification.message}
-                  type={notification.type}
-                  onClose={() => setNotification(null)}
-              />
-            </div>
-        )}
+    <div className="p-4">
+      {notification && (
+        <div className="fixed top-4 right-4 z-50 transition-opacity">
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        </div>
+      )}
 
-        <div className="p-4 mx-auto ">
-          <div className="flex justify-between mb-4">
-            <h2 className="text-2xl font-semibold text-indigo-700">
-              Quản lý doanh thu
-            </h2>
-            <div className="flex space-x-2">
-              <button
-                  className="flex items-center px-3 py-1
-                        bg-indigo-500 text-white rounded-lg
-                        hover:bg-indigo-600 transition duration-200
-                        ease-in-out transform hover:scale-105"
-                  onClick={handleExportToExcel}
-              >
-                <FaFileExcel className="mr-2" />
-                Xuất ra Excel
-              </button>
-            </div>
-          </div>
-
-          {/* Bộ lọc */}
-          <div className="flex space-x-4 mb-4 justify-end items-center">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Lọc theo tên cộng tác viên:
-              </label>
-              <select
-                  name="username"
-                  className="border p-2 rounded"
-                  onChange={handleFilterChange}
-                  value={filters.username}
-              >
-                <option value="">Chọn tên</option>
-                {Array.from(
-                    new Set(collaborators.map((c) => c.user.username))
-                ).map((username, i) => (
-                    <option key={i} value={username}>
-                      {username}
-                    </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Lọc theo số đơn hàng đã xử lý ({">"}=):
-              </label>
-              <select
-                  name="totalOrdersHandled"
-                  className="border p-2 rounded"
-                  onChange={handleFilterChange}
-                  value={filters.totalOrdersHandled}
-              >
-                <option value="">Chọn số đơn</option>
-                <option value="10">10</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Lọc theo tổng hoa hồng ({">"}=):
-              </label>
-              <select
-                  name="totalCommission"
-                  className="border p-2 rounded"
-                  onChange={handleFilterChange}
-                  value={filters.totalCommission}
-              >
-                <option value="">Chọn mức hoa hồng</option>
-                <option value="5000000">5,000,000</option>
-                <option value="10000000">10,000,000</option>
-                <option value="20000000">20,000,000</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Lọc theo tổng doanh thu ({">"}=):
-              </label>
-              <select
-                  name="totalRevenue"
-                  className="border p-2 rounded"
-                  onChange={handleFilterChange}
-                  value={filters.totalRevenue}
-              >
-                <option value="">Chọn tổng doanh thu</option>
-                <option value="50000000">50,000,000</option>
-                <option value="100000000">100,000,000</option>
-                <option value="200000000">200,000,000</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Lọc theo doanh thu có hoa hồng ({">"}=):
-              </label>
-              <select
-                  name="revenueWithCommission"
-                  className="border p-2 rounded"
-                  onChange={handleFilterChange}
-                  value={filters.revenueWithCommission}
-              >
-                <option value="">Chọn doanh thu có hoa hồng</option>
-                <option value="50000000">50,000,000</option>
-                <option value="100000000">100,000,000</option>
-                <option value="200000000">200,000,000</option>
-              </select>
-            </div>
+      <div className="p-4 mx-auto ">
+        <div className="flex justify-between mb-4">
+          <h2 className="text-2xl font-semibold text-indigo-700">
+            Quản lý doanh thu
+          </h2>
+          <div className="flex space-x-2">
+            <button
+              className="flex items-center px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 ease-in-out transform hover:scale-105"
+              onClick={handleExportStatisticalDataToExcel}
+            >
+              <FaFileExcel className="mr-2" />
+              Xuất TK
+            </button>
+            <button
+              className="flex items-center px-3 py-1 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition duration-200 ease-in-out transform hover:scale-105"
+              onClick={handleExportToExcel}
+            >
+              <FaFileExcel className="mr-2" />
+              Xuất Excel
+            </button>
           </div>
         </div>
 
-        {/* Bảng cộng tác viên */}
-        <div className="overflow-x-auto transition-opacity duration-500 ease-in-out border rounded-lg shadow-sm mb-6">
-          <table className="min-w-full bg-white border rounded-lg shadow-sm">
-            <thead>
+        {/* Bộ lọc */}
+        <div className="flex space-x-4 mb-4 justify-end items-center">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Tên CTV:
+            </label>
+            <input
+              type="text"
+              name="username"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              onChange={handleFilterChange}
+              value={filters.username}
+              placeholder="Nhập tên"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              ĐH {">="}
+            </label>
+            <input
+              type="number"
+              name="totalOrdersHandled"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              onChange={handleFilterChange}
+              value={filters.totalOrdersHandled}
+              placeholder="VD: 10"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              HH {">="}
+            </label>
+            <input
+              type="number"
+              name="totalCommission"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              onChange={handleFilterChange}
+              value={filters.totalCommission}
+              placeholder="VD: 5000000"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              DT {">="}
+            </label>
+            <input
+              type="number"
+              name="totalRevenue"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              onChange={handleFilterChange}
+              value={filters.totalRevenue}
+              placeholder="VD: 50000000"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              DT+HH {">="}
+            </label>
+            <input
+              type="number"
+              name="revenueWithCommission"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500"
+              onChange={handleFilterChange}
+              value={filters.revenueWithCommission}
+              placeholder="VD: 50000000"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Bảng cộng tác viên */}
+      <div className="overflow-x-auto transition-opacity duration-500 ease-in-out border rounded-lg shadow-sm mb-6">
+        <table className="min-w-full bg-white border rounded-lg shadow-sm">
+          <thead>
             <tr className="bg-gray-200 text-gray-700">
               <th className="px-4 py-2 text-center">STT</th>
-              <th className="px-4 py-2 text-center">Tên người dùng</th>
-              <th className="px-4 py-2 text-center">Ngày tham gia</th>
-              <th className="px-4 py-2 text-center">Tổng hoa hồng</th>
-              <th className="px-4 py-2 text-center">Tổng doanh thu</th>
-              <th className="px-4 py-2 text-center">Doanh thu có hoa hồng</th>
-              <th className="px-4 py-2 text-center">Tổng đơn hàng đã xử lý</th>
+              <th className="px-4 py-2 text-center">CTV</th>
+              <th className="px-4 py-2 text-center">Ngày</th>
+              <th className="px-4 py-2 text-center">H.Hồng</th>
+              <th className="px-4 py-2 text-center">D.Thu</th>
+              <th className="px-4 py-2 text-center">D.Thu+HH</th>
+              <th className="px-4 py-2 text-center">ĐH</th>
             </tr>
-            </thead>
-            <tbody>
-            {currentCollaborators.map((collaborator, index) => {
-              const revenueData = revenueDetails.find(
+          </thead>
+          <tbody>
+            {filteredCollaborators.length > 0 ? (
+              filteredCollaborators.map((collaborator, index) => {
+                const revenueData = revenueDetails.find(
                   (detail) => detail.collaboratorId === collaborator.id
-              );
-              return (
+                );
+                return (
                   <tr
-                      key={collaborator.id}
-                      className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${
-                          selectedCollaborators.includes(collaborator.user.id)
-                              ? "bg-indigo-100"
-                              : "hover:bg-gray-50"
-                      }`}
-                      onClick={() => handleRowSelect(collaborator.user.id)}
+                    key={collaborator.id}
+                    className={`hover:bg-gray-50 transition ease-in-out duration-200 cursor-pointer ${
+                      selectedCollaborators.includes(collaborator.user.id)
+                        ? "bg-indigo-100"
+                        : "hover:bg-gray-50"
+                    }`}
+                    onClick={() => handleRowSelect(collaborator.user.id)}
                   >
                     <td className="border px-4 py-2 text-center">
-                      {(currentPage - 1) * pageSize + index + 1}
+                      {displayPage * pageSize - pageSize + index + 1}
                     </td>
                     <td className="border px-4 py-2 text-center">
                       {collaborator.user.username}
                     </td>
                     <td className="border px-4 py-2 text-center">
-                      {new Date(collaborator.user.dateJoined).toLocaleDateString()}
+                      {new Date(
+                        collaborator.user.dateJoined
+                      ).toLocaleDateString()}
                     </td>
                     <td className="border px-4 py-2 text-center">
                       {formatCurrencyVND(revenueData?.totalCommission || 0)}
@@ -391,77 +432,94 @@ const FormRevenueAdmin: React.FC = () => {
                       {formatCurrencyVND(revenueData?.totalRevenue || 0)}
                     </td>
                     <td className="border px-4 py-2 text-center">
-                      {formatCurrencyVND(revenueData?.totalRevenueWithCommission || 0)}
+                      {formatCurrencyVND(
+                        revenueData?.totalRevenueWithCommission || 0
+                      )}
                     </td>
                     <td className="border px-4 py-2 text-center">
                       {collaborator.totalOrdersHandled}
                     </td>
                   </tr>
-              );
-            })}
-            </tbody>
-          </table>
-        </div>
+                );
+              })
+            ) : (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="border px-4 py-2 text-center text-red-500"
+                >
+                  Không có dữ liệu
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-        {/* Phân trang */}
-        <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-        />
+      {/* Phân trang */}
+      <Pagination
+        currentPage={displayPage}
+        totalPages={totalPages}
+        onPageChange={(newPage) => {
+          dispatch(getCollaborators({ page: newPage - 1, size: pageSize }));
+        }}
+      />
 
-        {/* Thống kê tổng quan */}
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold text-gray-800 mb-4">
-            Thống kê tổng quan
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 bg-white shadow rounded-lg">
-              <h4 className="text-lg font-semibold">Tổng hoa hồng (VND)</h4>
-              <p>
-                {formatCurrencyVND(
-                    overviewData.reduce((sum, data) => sum + data.totalCommission, 0)
-                )}
-              </p>
-            </div>
-            <div className="p-4 bg-white shadow rounded-lg">
-              <h4 className="text-lg font-semibold">Tổng doanh thu (VND)</h4>
-              <p>
-                {formatCurrencyVND(
-                    overviewData.reduce((sum, data) => sum + data.totalRevenue, 0)
-                )}
-              </p>
-            </div>
-            <div className="p-4 bg-white shadow rounded-lg">
-              <h4 className="text-lg font-semibold">Doanh thu có hoa hồng (VND)</h4>
-              <p>
-                {formatCurrencyVND(
-                    overviewData.reduce(
-                        (sum, data) => sum + data.revenueWithCommission,
-                        0
-                    )
-                )}
-              </p>
-            </div>
-            <div className="p-4 bg-white shadow rounded-lg">
-              <h4 className="text-lg font-semibold">Tổng số đơn hàng đã xử lý</h4>
-              <p>
-                {overviewData.reduce(
-                    (sum, data) => sum + data.totalOrdersHandled,
-                    0
-                )}
-              </p>
-            </div>
+      {/* Thống kê tổng quan */}
+      <div className="mb-6">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">
+          Thống kê tổng quan
+        </h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="p-4 bg-white shadow rounded-lg">
+            <h4 className="text-lg font-semibold">Tổng HH (VND)</h4>
+            <p>
+              {formatCurrencyVND(
+                overviewData.reduce(
+                  (sum, data) => sum + data.totalCommission,
+                  0
+                )
+              )}
+            </p>
+          </div>
+          <div className="p-4 bg-white shadow rounded-lg">
+            <h4 className="text-lg font-semibold">Tổng DT (VND)</h4>
+            <p>
+              {formatCurrencyVND(
+                overviewData.reduce((sum, data) => sum + data.totalRevenue, 0)
+              )}
+            </p>
+          </div>
+          <div className="p-4 bg-white shadow rounded-lg">
+            <h4 className="text-lg font-semibold">DT+HH (VND)</h4>
+            <p>
+              {formatCurrencyVND(
+                overviewData.reduce(
+                  (sum, data) => sum + data.revenueWithCommission,
+                  0
+                )
+              )}
+            </p>
+          </div>
+          <div className="p-4 bg-white shadow rounded-lg">
+            <h4 className="text-lg font-semibold">Tổng ĐH xử lý</h4>
+            <p>
+              {overviewData.reduce(
+                (sum, data) => sum + data.totalOrdersHandled,
+                0
+              )}
+            </p>
           </div>
         </div>
-
-        <Chart
-            type="bar"
-            data={chartData}
-            options={barChartOptions}
-            title="Thống kê doanh thu của cộng tác viên"
-        />
       </div>
+
+      <Chart
+        type="bar"
+        data={chartData}
+        options={barChartOptions}
+        title="Thống kê"
+      />
+    </div>
   );
 };
 

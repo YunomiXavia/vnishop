@@ -3,7 +3,6 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import React, { useEffect, useState } from "react";
 import { getMyInfo, updateMyInfo } from "@/store/user/userSlice";
-import Image from "next/image";
 import Notification from "@/components/notification/Notification";
 import InputTextAuth from "@/components/input/InputTextAuth";
 import { FormProvider, useForm } from "react-hook-form";
@@ -18,12 +17,6 @@ const FormProfile: React.FC = () => {
   const user = users[0] || {};
   const router = useRouter();
 
-  // Avatar State
-  const [avatar, setAvatar] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>(
-    user?.avatar || "https://via.placeholder.com/150"
-  );
-
   // Methods for Form
   const methods = useForm<ProfileFormData>();
   const { handleSubmit, watch, setError, reset } = methods;
@@ -37,15 +30,6 @@ const FormProfile: React.FC = () => {
     message: string;
     type: "success" | "error";
   } | null>(null);
-
-  // Handle Avatar Change
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setAvatar(file);
-      setAvatarPreview(URL.createObjectURL(file));
-    }
-  };
 
   // Handle Form Submit
   const onSubmit = handleSubmit(async (data) => {
@@ -103,36 +87,21 @@ const FormProfile: React.FC = () => {
       ? "/collaborator"
       : "/user";
 
+  // Handle redirect
+  const handleBackClick = () => {
+    router.push(redirectUrl);
+  };
+
   return (
     <FormProvider {...methods}>
       <div className="flex items-center justify-center min-h-screen bg-gray-100 relative">
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden w-full max-w-4xl p-8">
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden w-full max-w-4xl p-8 relative">
           <div className="flex flex-col lg:flex-row">
             {/*Sidebar with Avatar and Info*/}
             <div
               className="flex flex-col items-center justify-center
                         border-r border-gray-200 pr-5"
             >
-              <div className="relative mb-4">
-                <Image
-                  src={avatarPreview}
-                  alt="Avatar"
-                  className="w-32 h-32 rounded-full object-cover"
-                  width={32}
-                  height={32}
-                />
-                <label
-                  className="absolute bottom-0 right-0 bg-indigo-500
-                                    text-white p-2 rounded-full cursor-pointer"
-                >
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleAvatarChange}
-                  />
-                  Tải lên
-                </label>
-              </div>
               <h2 className="text-lg font-semibold text-gray-800">
                 {user?.username || "User Name"}
               </h2>
@@ -259,18 +228,18 @@ const FormProfile: React.FC = () => {
                   {loading ? "Loading..." : "Update Profile"}
                 </button>
               </form>
+
+              {/* Back Button */}
+              <button
+                className="absolute top-10 left-4 flex items-center text-gray-700 hover:text-indigo-500 transition duration-200"
+                onClick={handleBackClick}
+              >
+                <FaArrowLeft className="mr-2" />
+                Quay lại
+              </button>
             </main>
           </div>
         </div>
-
-        {/* Go Back to Dashboard Button */}
-        <button
-          onClick={() => router.push(redirectUrl)}
-          className="absolute bottom-4 left-4 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg flex items-center transition duration-200"
-        >
-          <FaArrowLeft className="mr-2" />
-          Quay lại trang chủ
-        </button>
       </div>
     </FormProvider>
   );

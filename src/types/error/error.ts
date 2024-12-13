@@ -1,4 +1,4 @@
 export interface ErrorResponseProps {
-    code: number;
-    message: string;
+  code: number;
+  message: string;
 }

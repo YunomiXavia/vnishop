@@ -14,7 +14,7 @@ export default function CollaboratorLayout({
     <Provider store={store}>
       <div className="flex h-screen">
         <SidebarCollaborator />
-        <main className="flex-1 p-8 bg-gray-100">{children}</main>
+        <main className="ml-64 flex-1 p-6 overflow-auto">{children}</main>
       </div>
     </Provider>
   );

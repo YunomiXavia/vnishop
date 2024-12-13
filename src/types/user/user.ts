@@ -1,14 +1,14 @@
 // User State for userSlice
-import {ErrorResponseProps} from "@/types/error/error";
+import { ErrorResponseProps } from "@/types/error/error";
 
 export interface UserState {
   users: User[];
   loading: boolean;
   error: ErrorResponseProps | null;
-  currentPage: number,
-  totalPages: number,
-  totalElements: number,
-  pageSize: number,
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
 }
 
 // User Interface

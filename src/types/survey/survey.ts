@@ -1,5 +1,5 @@
 // Survey User Props for Response
-import {ErrorResponseProps} from "@/types/error/error";
+import { ErrorResponseProps } from "@/types/error/error";
 
 export interface SurveyUserProps {
   id: string;
@@ -27,8 +27,8 @@ export interface Survey {
   status: SurveyStatusProps;
   question: string;
   response: string | null;
-  createdAt: Date;
-  responseAt: Date;
+  createdAt: string;
+  responseAt?: string | null;
 }
 
 // Survey State
@@ -36,8 +36,8 @@ export interface SurveyState {
   surveys: Survey[];
   loading: boolean;
   error: ErrorResponseProps | null;
-  currentPage: number,
-  totalPages: number,
-  totalElements: number,
-  pageSize: number,
+  currentPage: number;
+  totalPages: number;
+  totalElements: number;
+  pageSize: number;
 }

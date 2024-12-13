@@ -3,6 +3,7 @@ import { AnonymousUser, UserBasicInfo } from "@/types/user/user";
 import { CollaboratorBasicInfo } from "@/types/collaborator/collaborator";
 import {ErrorResponseProps} from "@/types/error/error";
 
+
 export interface OrderItemsResponse {
   id?: string;
   product: ProductBasicInfo;
@@ -14,7 +15,7 @@ export interface OrderItemsResponse {
 export interface OrderResponse {
   id: string;
   user?: UserBasicInfo;
-  anonymousUser?: Record<string, AnonymousUser>;
+  anonymousUser?: AnonymousUser;
   collaborator?: CollaboratorBasicInfo;
   statusName: string;
   orderItems: OrderItemsResponse[];
@@ -33,6 +34,7 @@ export interface OrderPaginatedResponse {
   pageSize: number;
 }
 
+
 export interface OrderState {
   orders: OrderResponse[];
   serviceDates: ServiceDate[];
@@ -42,7 +44,12 @@ export interface OrderState {
   totalPages: number;
   totalElements: number;
   pageSize: number;
+  serviceDatesCurrentPage: number,
+  serviceDatesTotalPages: number,
+  serviceDatesTotalElements: number,
+  serviceDatesPageSize: number,
 }
+
 
 export interface ServiceDate {
   id: string;
@@ -55,6 +62,7 @@ export interface ServiceDate {
   price: number;
   expiryDate: string;
 }
+
 
 export interface OrderDistribution {
   [key: string]: number;

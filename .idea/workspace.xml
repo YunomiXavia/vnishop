@@ -5,10 +5,44 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="71aaa85d-e3f4-467a-b9c1-1cebd56e2962" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/app/(dashboard)/admin/categories/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/app/(dashboard)/collaborator/info/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/components/form/category/FormCategoryAdmin.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/components/form/collaborator/FormCollaboratorInfo.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/components/textArea/TextAreaProductForm.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/types/textArea/textArea.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(dashboard)/admin/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(dashboard)/admin/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(dashboard)/admin/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(dashboard)/admin/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(dashboard)/admin/surveys/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(dashboard)/admin/surveys/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(dashboard)/collaborator/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(dashboard)/collaborator/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(dashboard)/collaborator/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(dashboard)/collaborator/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(dashboard)/user/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(dashboard)/user/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(dashboard)/user/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(dashboard)/user/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/collaborator/FormCollaboratorAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/collaborator/FormCollaboratorAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/order/FormOrder.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/order/FormOrder.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/form/order/FormOrderAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/order/FormOrderAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/order/FormOrderCollaborator.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/order/FormOrderCollaborator.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/product/FormProductAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/product/FormProductAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/revenue/FormRevenueAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/revenue/FormRevenueAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/service_date/FormServiceDateAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/service_date/FormServiceDateAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/survey/FormSurveyAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/survey/FormSurveyAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/survey/FormSurveyCollaborator.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/survey/FormSurveyCollaborator.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/user/FormProfile.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/user/FormProfile.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/form/user/FormUserAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/form/user/FormUserAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/sidebar/SidebarAdmin.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/sidebar/SidebarAdmin.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/sidebar/SidebarCollaborator.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/sidebar/SidebarCollaborator.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/sidebar/components/Sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/sidebar/components/Sidebar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/store/category/categorySlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/category/categorySlice.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/store/collaborator/collaboratorSlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/collaborator/collaboratorSlice.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/store/order/orderSlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/order/orderSlice.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/store/revenue/revenueSlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/revenue/revenueSlice.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/store/survey/surveySlice.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/survey/surveySlice.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/category/category.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/category/category.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/types/order/order.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/order/order.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/revenue/revenue.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/revenue/revenue.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/survey/survey.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/survey/survey.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vnishop.rar" beforeDir="false" afterPath="$PROJECT_DIR$/vnishop.rar" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,24 +78,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Node.js.orderSlice.ts.executor": "Debug",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "D:/File hoc/projectThucTap/vnishop/src/components/form/service_date",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "ts.external.directory.path": "D:\\File hoc\\projectThucTap\\vnishop\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Node.js.orderSlice.ts.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/File hoc/projectThucTap/fe_client&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;D:\\File hoc\\projectThucTap\\vnishop\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="ReactDesignerToolWindowState">
     <option name="myId2Visible">
       <map>
@@ -157,6 +191,11 @@
       <workItem from="1733730691182" duration="8858000" />
       <workItem from="1733745626780" duration="19969000" />
       <workItem from="1733793929664" duration="7477000" />
+      <workItem from="1733836391554" duration="18135000" />
+      <workItem from="1733885966582" duration="5582000" />
+      <workItem from="1733925213517" duration="10080000" />
+      <workItem from="1734004271455" duration="146000" />
+      <workItem from="1734008777720" duration="10002000" />
     </task>
     <servers />
   </component>
